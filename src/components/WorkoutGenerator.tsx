@@ -1,6 +1,10 @@
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
 import { useWorkoutGenerator } from '../hooks/useWorkoutGenerator';
 import { kgToLbs } from '../lib/units';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 export default function WorkoutGenerator({ userId }: { userId: string }) {
   const { suggestion, isGenerating, isSaving, error, generate, save } =
@@ -16,29 +20,42 @@ export default function WorkoutGenerator({ userId }: { userId: string }) {
   };
 
   return (
-    <View className="bg-surface border border-border rounded-xl p-4 gap-3">
-      <View>
-        <Text className="text-sm font-semibold text-white">Generate a workout</Text>
-        <Text className="text-xs text-gray-500 mt-1">
-          Rule-based, from your own training data (least-trained muscle groups +
-          personal records) — not an AI model call.
-        </Text>
+    <Card className="p-4 gap-3">
+      <View className="flex-row items-center gap-2">
+        <View className="w-8 h-8 rounded-lg bg-primary/15 items-center justify-center">
+          <Ionicons name="sparkles-outline" size={16} color="#3B82F6" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-sm font-semibold text-white">Generate a workout</Text>
+          <Text className="text-xs text-gray-500 mt-0.5">
+            Rule-based, from your own training data — not an AI model call.
+          </Text>
+        </View>
       </View>
 
-      <Pressable
+      <Button
         onPress={() => void generate()}
-        disabled={isGenerating}
-        className="h-11 bg-primary rounded-lg items-center justify-center disabled:opacity-50"
+        loading={isGenerating}
+        fullWidth
+        icon={<Ionicons name="shuffle-outline" size={16} color="#fff" />}
       >
-        <Text className="text-white font-semibold">
-          {isGenerating ? 'Generating…' : suggestion ? 'Regenerate' : 'Generate 3-day split'}
-        </Text>
-      </Pressable>
+        {suggestion ? 'Regenerate' : 'Generate 3-day split'}
+      </Button>
 
-      {error && <Text className="text-xs text-red-400">{error}</Text>}
+      {error && (
+        <View className="flex-row items-center gap-1.5">
+          <Ionicons name="alert-circle-outline" size={13} color="#F87171" />
+          <Text className="text-xs text-red-400 flex-1">{error}</Text>
+        </View>
+      )}
 
       {suggestion && (
-        <View className="gap-3">
+        <MotiView
+          from={{ opacity: 0, translateY: 8 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 250 }}
+          className="gap-3"
+        >
           {suggestion.days.map((day) => (
             <View key={day.dayNumber} className="gap-1">
               <Text className="text-xs font-semibold text-gray-400 uppercase">
@@ -47,7 +64,7 @@ export default function WorkoutGenerator({ userId }: { userId: string }) {
               {day.items.map((item) => (
                 <View
                   key={item.exerciseId}
-                  className="flex-row items-center justify-between bg-background rounded-lg px-3 py-2"
+                  className="flex-row items-center justify-between bg-background rounded-xl px-3 py-2"
                 >
                   <Text className="text-sm text-white">{item.exerciseName}</Text>
                   <Text className="text-xs text-gray-400">
@@ -60,17 +77,17 @@ export default function WorkoutGenerator({ userId }: { userId: string }) {
             </View>
           ))}
 
-          <Pressable
+          <Button
             onPress={() => void handleSave()}
-            disabled={isSaving}
-            className="h-11 bg-background border border-primary rounded-lg items-center justify-center disabled:opacity-50"
+            loading={isSaving}
+            variant="outline"
+            fullWidth
+            icon={<Ionicons name="checkmark-circle-outline" size={16} color="#3B82F6" />}
           >
-            <Text className="text-primary font-semibold">
-              {isSaving ? 'Saving…' : 'Save as my next workout'}
-            </Text>
-          </Pressable>
-        </View>
+            Save as my next workout
+          </Button>
+        </MotiView>
       )}
-    </View>
+    </Card>
   );
 }

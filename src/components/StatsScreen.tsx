@@ -1,16 +1,32 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
 import { usePersonalRecords } from '../hooks/usePersonalRecords';
 import { useMuscleAnalytics } from '../hooks/useMuscleAnalytics';
 import { useExerciseStats } from '../hooks/useExerciseStats';
 import { toBarWidths } from '../lib/analytics/muscleBars';
 import { kgToLbs } from '../lib/units';
 import WorkoutGenerator from './WorkoutGenerator';
+import Card from './ui/Card';
+import FadeInView from './ui/FadeInView';
+import Skeleton from './ui/Skeleton';
+
+function SectionHeader({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  return (
+    <View className="flex-row items-center gap-1.5 px-2">
+      <Ionicons name={icon} size={14} color="#9CA3AF" />
+      <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 function ExerciseStatsDetail({ userId, exerciseId }: { userId: string; exerciseId: string }) {
   const { points, isLoading, error } = useExerciseStats(userId, exerciseId);
 
-  if (isLoading) return <Text className="text-xs text-gray-500 px-3 pb-3">Loading…</Text>;
+  if (isLoading) return <Skeleton className="h-8 mx-3 mb-3 rounded-md" />;
   if (error) return <Text className="text-xs text-red-400 px-3 pb-3">{error}</Text>;
   if (points.length === 0) {
     return (
@@ -21,7 +37,11 @@ function ExerciseStatsDetail({ userId, exerciseId }: { userId: string; exerciseI
   }
 
   return (
-    <View className="px-3 pb-3 gap-1.5">
+    <MotiView
+      from={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      className="px-3 pb-3 gap-1.5"
+    >
       {points
         .slice()
         .reverse()
@@ -33,7 +53,7 @@ function ExerciseStatsDetail({ userId, exerciseId }: { userId: string; exerciseI
             </Text>
           </View>
         ))}
-    </View>
+    </MotiView>
   );
 }
 
@@ -41,45 +61,62 @@ function PersonalRecordsList({ userId }: { userId: string }) {
   const { records, isLoading, error } = usePersonalRecords(userId);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  if (isLoading) return <Text className="text-sm text-gray-500 px-2">Loading…</Text>;
+  if (isLoading) {
+    return (
+      <View className="gap-2">
+        <SectionHeader icon="trophy-outline" label="Personal records" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+      </View>
+    );
+  }
   if (error) {
     return <Text className="text-sm text-red-400 px-2">Could not load records: {error}</Text>;
   }
   if (records.length === 0) {
-    return <Text className="text-sm text-gray-500 px-2">No sets logged yet.</Text>;
+    return (
+      <View className="items-center py-6 gap-2">
+        <Ionicons name="trophy-outline" size={26} color="#6B7280" />
+        <Text className="text-sm text-gray-500">No sets logged yet.</Text>
+      </View>
+    );
   }
 
   return (
     <View className="gap-2">
-      <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-2">
-        Personal records
-      </Text>
-      {records.map((r) => (
-        <View key={r.exercise_id} className="bg-surface border border-border rounded-lg">
-          <Pressable
-            onPress={() => setExpanded((cur) => (cur === r.exercise_id ? null : r.exercise_id))}
-            className="flex-row items-center justify-between px-3 py-2.5"
-          >
-            <View>
-              <Text className="text-sm font-medium text-white">{r.exercise_name}</Text>
-              <Text className="text-xs text-gray-500">{r.target_muscle_group}</Text>
-            </View>
-            <View className="items-end">
-              <Text className="text-sm font-semibold text-primary">
-                {kgToLbs(r.best_weight_kg)} lbs × {r.best_reps}
-              </Text>
-              {r.best_estimated_1rm != null && (
-                <Text className="text-xs text-gray-500">
-                  e1RM {kgToLbs(r.best_estimated_1rm)} lbs
-                </Text>
-              )}
-            </View>
-          </Pressable>
-          {expanded === r.exercise_id && (
-            <ExerciseStatsDetail userId={userId} exerciseId={r.exercise_id} />
-          )}
-        </View>
-      ))}
+      <SectionHeader icon="trophy-outline" label="Personal records" />
+      {records.map((r, i) => {
+        const isOpen = expanded === r.exercise_id;
+        return (
+          <FadeInView key={r.exercise_id} delay={i * 40}>
+            <Card>
+              <Pressable
+                onPress={() => setExpanded(isOpen ? null : r.exercise_id)}
+                className="flex-row items-center justify-between px-3 py-2.5"
+              >
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-white">{r.exercise_name}</Text>
+                  <Text className="text-xs text-gray-500">{r.target_muscle_group}</Text>
+                </View>
+                <View className="items-end mr-2">
+                  <Text className="text-sm font-semibold text-primary">
+                    {kgToLbs(r.best_weight_kg)} lbs × {r.best_reps}
+                  </Text>
+                  {r.best_estimated_1rm != null && (
+                    <Text className="text-xs text-gray-500">
+                      e1RM {kgToLbs(r.best_estimated_1rm)} lbs
+                    </Text>
+                  )}
+                </View>
+                <MotiView animate={{ rotate: isOpen ? '90deg' : '0deg' }} transition={{ type: 'timing', duration: 150 }}>
+                  <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                </MotiView>
+              </Pressable>
+              {isOpen && <ExerciseStatsDetail userId={userId} exerciseId={r.exercise_id} />}
+            </Card>
+          </FadeInView>
+        );
+      })}
     </View>
   );
 }
@@ -87,15 +124,23 @@ function PersonalRecordsList({ userId }: { userId: string }) {
 function MuscleAnalytics({ userId }: { userId: string }) {
   const { rows, isLoading, error } = useMuscleAnalytics(userId);
 
-  if (isLoading) return <Text className="text-sm text-gray-500 px-2">Loading…</Text>;
+  if (isLoading) {
+    return (
+      <View className="gap-2">
+        <SectionHeader icon="pulse-outline" label="Muscle volume — last 30 days" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </View>
+    );
+  }
   if (error) {
     return <Text className="text-sm text-red-400 px-2">Could not load analytics: {error}</Text>;
   }
   if (rows.length === 0) {
     return (
-      <Text className="text-sm text-gray-500 px-2">
-        No sets logged in the last 30 days.
-      </Text>
+      <View className="items-center py-6 gap-2">
+        <Ionicons name="pulse-outline" size={26} color="#6B7280" />
+        <Text className="text-sm text-gray-500">No sets logged in the last 30 days.</Text>
+      </View>
     );
   }
 
@@ -103,11 +148,9 @@ function MuscleAnalytics({ userId }: { userId: string }) {
 
   return (
     <View className="gap-2">
-      <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-2">
-        Muscle volume — last 30 days
-      </Text>
-      <View className="bg-surface border border-border rounded-xl p-4 gap-3">
-        {bars.map((b) => (
+      <SectionHeader icon="pulse-outline" label="Muscle volume — last 30 days" />
+      <Card className="p-4 gap-3">
+        {bars.map((b, i) => (
           <View key={b.target_muscle_group} className="gap-1">
             <View className="flex-row items-center justify-between">
               <Text className="text-xs font-medium text-gray-300">
@@ -118,14 +161,16 @@ function MuscleAnalytics({ userId }: { userId: string }) {
               </Text>
             </View>
             <View className="h-2 bg-background rounded-full overflow-hidden">
-              <View
+              <MotiView
                 className="h-2 bg-primary rounded-full"
-                style={{ width: `${b.widthPct}%` }}
+                from={{ width: '0%' }}
+                animate={{ width: `${b.widthPct}%` }}
+                transition={{ type: 'timing', duration: 500, delay: i * 60 }}
               />
             </View>
           </View>
         ))}
-      </View>
+      </Card>
     </View>
   );
 }

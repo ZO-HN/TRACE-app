@@ -9,13 +9,15 @@ import GymLogger from '../src/components/GymLogger';
 import SessionSummaries from '../src/components/SessionSummaries';
 import NutritionLogger from '../src/components/NutritionLogger';
 import BodyweightLogger from '../src/components/BodyweightLogger';
+import StatsScreen from '../src/components/StatsScreen';
 
-type Tab = 'log' | 'nutrition' | 'progress';
+type Tab = 'log' | 'nutrition' | 'progress' | 'stats';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'log', label: 'Log' },
   { key: 'nutrition', label: 'Nutrition' },
   { key: 'progress', label: 'Progress' },
+  { key: 'stats', label: 'Stats' },
 ];
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (tab: Tab) => void }) {
@@ -97,6 +99,12 @@ export default function Home() {
         <ScrollView className="flex-1" contentContainerClassName="px-4 py-6 gap-8">
           <BodyweightLogger userId={profile.id} />
           <SessionSummaries userId={profile.id} />
+        </ScrollView>
+      )}
+
+      {tab === 'stats' && (
+        <ScrollView className="flex-1" contentContainerClassName="px-4 py-6">
+          <StatsScreen userId={profile.id} />
         </ScrollView>
       )}
 

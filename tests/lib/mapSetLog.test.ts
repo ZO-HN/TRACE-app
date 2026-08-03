@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lbsToKg } from '../../src/lib/units';
+import { kgToLbs, lbsToKg } from '../../src/lib/units';
 import {
   isValidSetInput,
   toSetLogInsert,
@@ -21,6 +21,18 @@ describe('lbsToKg', () => {
     expect(lbsToKg(135)).toBe(61.23);
     expect(lbsToKg(225)).toBe(102.06);
     expect(lbsToKg(0)).toBe(0);
+  });
+});
+
+describe('kgToLbs', () => {
+  it('converts and rounds to 1 decimal', () => {
+    expect(kgToLbs(61.23)).toBe(135);
+    expect(kgToLbs(102.06)).toBe(225);
+    expect(kgToLbs(0)).toBe(0);
+  });
+
+  it('round-trips lbsToKg within display rounding', () => {
+    expect(kgToLbs(lbsToKg(185))).toBeCloseTo(185, 0);
   });
 });
 

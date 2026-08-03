@@ -7,3 +7,8 @@ const LBS_TO_KG = 0.453_592_37;
 export function lbsToKg(lbs: number): number {
   return Math.round(lbs * LBS_TO_KG * 100) / 100;
 }
+
+/** Convert kilograms to pounds, rounded to 1 decimal (display precision). */
+export function kgToLbs(kg: number): number {
+  return Math.round((kg / LBS_TO_KG) * 10) / 10;
+}

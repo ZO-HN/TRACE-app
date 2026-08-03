@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTraceUser } from '../src/hooks/useTraceUser';
 import { useOutboxSync } from '../src/hooks/useOutboxSync';
@@ -6,9 +7,42 @@ import { supabase } from '../src/lib/supabase';
 import AuthScreen from '../src/components/auth/AuthScreen';
 import GymLogger from '../src/components/GymLogger';
 import SessionSummaries from '../src/components/SessionSummaries';
+import NutritionLogger from '../src/components/NutritionLogger';
+import BodyweightLogger from '../src/components/BodyweightLogger';
+
+type Tab = 'log' | 'nutrition' | 'progress';
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'log', label: 'Log' },
+  { key: 'nutrition', label: 'Nutrition' },
+  { key: 'progress', label: 'Progress' },
+];
+
+function TabBar({ active, onChange }: { active: Tab; onChange: (tab: Tab) => void }) {
+  return (
+    <View className="flex-row border-t border-border bg-surface">
+      {TABS.map((tab) => (
+        <Pressable
+          key={tab.key}
+          onPress={() => onChange(tab.key)}
+          className="flex-1 py-3 items-center"
+        >
+          <Text
+            className={`text-sm font-medium ${
+              active === tab.key ? 'text-primary' : 'text-gray-500'
+            }`}
+          >
+            {tab.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
 
 export default function Home() {
   const { isLoading, error, user, profile } = useTraceUser();
+  const [tab, setTab] = useState<Tab>('log');
 
   // Keep the offline outbox flushing to Supabase whenever connectivity
   // returns. Mounted unconditionally so it hydrates even while signed out.
@@ -51,14 +85,22 @@ export default function Home() {
         </Pressable>
       </View>
 
-      <GymLogger
-        userId={profile.id}
-        footer={
-          <View className="px-2">
-            <SessionSummaries userId={profile.id} />
-          </View>
-        }
-      />
+      {tab === 'log' && <GymLogger userId={profile.id} />}
+
+      {tab === 'nutrition' && (
+        <ScrollView className="flex-1" contentContainerClassName="px-4 py-6">
+          <NutritionLogger userId={profile.id} />
+        </ScrollView>
+      )}
+
+      {tab === 'progress' && (
+        <ScrollView className="flex-1" contentContainerClassName="px-4 py-6 gap-8">
+          <BodyweightLogger userId={profile.id} />
+          <SessionSummaries userId={profile.id} />
+        </ScrollView>
+      )}
+
+      <TabBar active={tab} onChange={setTab} />
     </SafeAreaView>
   );
 }

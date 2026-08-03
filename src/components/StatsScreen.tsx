@@ -5,6 +5,7 @@ import { useMuscleAnalytics } from '../hooks/useMuscleAnalytics';
 import { useExerciseStats } from '../hooks/useExerciseStats';
 import { toBarWidths } from '../lib/analytics/muscleBars';
 import { kgToLbs } from '../lib/units';
+import WorkoutGenerator from './WorkoutGenerator';
 
 function ExerciseStatsDetail({ userId, exerciseId }: { userId: string; exerciseId: string }) {
   const { points, isLoading, error } = useExerciseStats(userId, exerciseId);
@@ -132,6 +133,7 @@ function MuscleAnalytics({ userId }: { userId: string }) {
 export default function StatsScreen({ userId }: { userId: string }) {
   return (
     <View className="gap-8">
+      <WorkoutGenerator userId={userId} />
       <PersonalRecordsList userId={userId} />
       <MuscleAnalytics userId={userId} />
     </View>

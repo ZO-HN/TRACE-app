@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTraceUser } from '../src/hooks/useTraceUser';
 import { useOutboxSync } from '../src/hooks/useOutboxSync';
+import { usePushNotifications } from '../src/hooks/usePushNotifications';
 import { supabase } from '../src/lib/supabase';
 import AuthScreen from '../src/components/auth/AuthScreen';
 import GymLogger from '../src/components/GymLogger';
@@ -10,14 +11,16 @@ import SessionSummaries from '../src/components/SessionSummaries';
 import NutritionLogger from '../src/components/NutritionLogger';
 import BodyweightLogger from '../src/components/BodyweightLogger';
 import StatsScreen from '../src/components/StatsScreen';
+import ChatScreen from '../src/components/ChatScreen';
 
-type Tab = 'log' | 'nutrition' | 'progress' | 'stats';
+type Tab = 'log' | 'nutrition' | 'progress' | 'stats' | 'messages';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'log', label: 'Log' },
   { key: 'nutrition', label: 'Nutrition' },
   { key: 'progress', label: 'Progress' },
   { key: 'stats', label: 'Stats' },
+  { key: 'messages', label: 'Messages' },
 ];
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (tab: Tab) => void }) {
@@ -49,6 +52,7 @@ export default function Home() {
   // Keep the offline outbox flushing to Supabase whenever connectivity
   // returns. Mounted unconditionally so it hydrates even while signed out.
   useOutboxSync();
+  usePushNotifications(profile?.id ?? null);
 
   if (isLoading) {
     return (
@@ -107,6 +111,17 @@ export default function Home() {
           <StatsScreen userId={profile.id} />
         </ScrollView>
       )}
+
+      {tab === 'messages' &&
+        (profile.coach_id ? (
+          <ChatScreen myId={profile.id} coachId={profile.coach_id} />
+        ) : (
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-sm text-gray-500 text-center">
+              Not enrolled with a coach yet — no one to message.
+            </Text>
+          </View>
+        ))}
 
       <TabBar active={tab} onChange={setTab} />
     </SafeAreaView>

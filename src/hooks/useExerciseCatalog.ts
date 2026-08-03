@@ -24,7 +24,7 @@ export function useExerciseCatalog(): ExerciseCatalog {
       try {
         const { data, error } = await supabase
           .from('exercises')
-          .select('id, name')
+          .select('id, name, target_muscle_group')
           .order('name');
         if (!cancelled && !error && data) {
           setByName(indexByName(data as ExerciseRow[]));

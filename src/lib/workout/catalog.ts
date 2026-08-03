@@ -4,6 +4,7 @@
 export interface ExerciseRow {
   id: string;
   name: string;
+  target_muscle_group?: string;
 }
 
 /** Case-insensitive name -> id index. Later duplicates do not overwrite earlier ones. */

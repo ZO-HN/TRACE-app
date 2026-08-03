@@ -1,6 +1,10 @@
-// Loads the trainee's real workout content: their coach's assigned template
-// and its items. Returns null content when nothing loads (offline / empty
-// DB / not yet assigned) so the logger can fall back to a placeholder.
+// Loads the trainee's real workout content, in priority order:
+//   1. The coach's ASSIGNED template (earliest week/day first).
+//   2. The trainee's own most recent self-generated PRIVATE template
+//      (see useWorkoutGenerator) — day_number ASC so a multi-day generated
+//      split starts at Day 1, most-recently-generated split wins ties.
+// Returns null content when neither loads (offline / empty DB / nothing
+// yet) so the logger can fall back to its hardcoded placeholder.
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -16,6 +20,32 @@ export interface AssignedWorkout {
   exercises: LoggerExercise[] | null;
 }
 
+async function findTemplate(userId: string) {
+  const { data: assigned } = await supabase
+    .from('workout_templates')
+    .select('id, name')
+    .eq('is_active', true)
+    .eq('scope', 'ASSIGNED')
+    .eq('assigned_trainee_id', userId)
+    .order('week_number', { ascending: true })
+    .order('day_number', { ascending: true })
+    .limit(1);
+
+  if (assigned?.[0]) return assigned[0];
+
+  const { data: own } = await supabase
+    .from('workout_templates')
+    .select('id, name')
+    .eq('is_active', true)
+    .eq('scope', 'PRIVATE')
+    .eq('creator_id', userId)
+    .order('day_number', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  return own?.[0] ?? null;
+}
+
 export function useAssignedWorkout(userId: string): AssignedWorkout {
   const [workout, setWorkout] = useState<AssignedWorkout>({
     templateId: null,
@@ -28,18 +58,8 @@ export function useAssignedWorkout(userId: string): AssignedWorkout {
 
     (async () => {
       try {
-        const { data: templates, error: templateError } = await supabase
-          .from('workout_templates')
-          .select('id, name')
-          .eq('is_active', true)
-          .eq('scope', 'ASSIGNED')
-          .eq('assigned_trainee_id', userId)
-          .order('week_number', { ascending: true })
-          .order('day_number', { ascending: true })
-          .limit(1);
-
-        const template = templates?.[0];
-        if (templateError || !template || cancelled) return;
+        const template = await findTemplate(userId);
+        if (!template || cancelled) return;
 
         const { data: items, error: itemsError } = await supabase
           .from('template_items')

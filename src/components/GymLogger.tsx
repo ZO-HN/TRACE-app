@@ -313,19 +313,17 @@ export default function GymLogger({
                           onPress={() => updateSet(eIndex, sIndex, 'completed', !set.completed)}
                         >
                           <MotiView
-                            animate={{ scale: set.completed ? 1 : 1 }}
-                            transition={{ type: 'timing', duration: 150 }}
+                            key={set.completed ? 'done' : 'undone'}
+                            from={{ scale: set.completed ? 0.7 : 1 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', damping: 10, stiffness: 300 }}
                             className={`w-14 h-12 rounded-xl items-center justify-center ${
                               set.completed
                                 ? 'bg-green-500'
                                 : 'bg-surface border-2 border-border'
                             }`}
                           >
-                            <Ionicons
-                              name={set.completed ? 'checkmark' : 'checkmark-outline'}
-                              size={22}
-                              color={set.completed ? '#fff' : 'transparent'}
-                            />
+                            {set.completed && <Ionicons name="checkmark" size={22} color="#fff" />}
                           </MotiView>
                         </Pressable>
                       </View>

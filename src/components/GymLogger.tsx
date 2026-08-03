@@ -4,6 +4,8 @@ import { randomUUID } from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { Ionicons } from '@expo/vector-icons';
+import { AnimatePresence, MotiView } from 'moti';
 import { useOutboxStore } from '../lib/outbox/outboxStore';
 import { isValidSetInput, toSetLogInsert } from '../lib/outbox/mapSetLog';
 import { useExerciseCatalog } from '../hooks/useExerciseCatalog';
@@ -13,6 +15,9 @@ import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
 import { useMediaUpload } from '../hooks/useMediaUpload';
 import type { RNFile } from '../lib/storage/uploadMedia';
 import MediaViewer from './media/MediaViewer';
+import Badge from './ui/Badge';
+import Card from './ui/Card';
+import FadeInView from './ui/FadeInView';
 
 type SetData = {
   id: string;
@@ -242,146 +247,157 @@ export default function GymLogger({
         keyboardShouldPersistTaps="handled"
       >
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold text-white">
-            {templateName ?? 'Current Workout'}
-          </Text>
+          <View>
+            <Text className="text-2xl font-bold text-white">
+              {templateName ?? 'Current Workout'}
+            </Text>
+            <Text className="text-xs text-gray-500 mt-0.5">
+              {exercises.length} exercise{exercises.length === 1 ? '' : 's'}
+            </Text>
+          </View>
           {pendingCount > 0 && (
-            <View className="flex-row items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-full">
-              <View className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <Text className="text-primary text-xs font-semibold">
-                {pendingCount} queued
-              </Text>
-            </View>
+            <Badge tone="primary" pulse>
+              {pendingCount} queued
+            </Badge>
           )}
         </View>
 
         {exercises.map((exercise, eIndex) => (
-          <View
-            key={exercise.id}
-            className="bg-surface rounded-xl border border-border overflow-hidden"
-          >
-            <View className="bg-border/30 px-4 py-3 border-b border-border">
-              <Text className="text-lg font-semibold text-white">{exercise.name}</Text>
-            </View>
-
-            <View className="p-2 gap-2">
-              <View className="flex-row px-2">
-                <Text className="w-8 text-xs font-semibold text-gray-500 uppercase">Set</Text>
-                <Text className="flex-1 text-xs font-semibold text-gray-500 uppercase text-center">
-                  lbs
-                </Text>
-                <Text className="flex-1 text-xs font-semibold text-gray-500 uppercase text-center">
-                  Reps
-                </Text>
-                <Text className="w-14 text-xs font-semibold text-gray-500 uppercase text-center">
-                  Done
-                </Text>
+          <FadeInView key={exercise.id} delay={eIndex * 60}>
+            <Card className="overflow-hidden">
+              <View className="bg-border/30 px-4 py-3 border-b border-border flex-row items-center gap-2">
+                <Ionicons name="barbell-outline" size={16} color="#3B82F6" />
+                <Text className="text-lg font-semibold text-white">{exercise.name}</Text>
               </View>
 
-              {exercise.sets.map((set, sIndex) => {
-                const e1RM = calculateE1RM(set.weight, set.reps);
-                return (
-                  <View
-                    key={set.id}
-                    className={`gap-2 p-2 rounded-lg ${set.completed ? 'bg-green-900/10' : ''}`}
-                  >
-                    <View className="flex-row items-center gap-2">
-                      <Text className="w-8 text-gray-400 font-medium text-sm text-center">
-                        {sIndex + 1}
-                      </Text>
-                      <TextInput
-                        value={set.weight}
-                        onChangeText={(v) => updateSet(eIndex, sIndex, 'weight', v)}
-                        editable={!set.completed}
-                        keyboardType="decimal-pad"
-                        className="flex-1 h-12 bg-background border border-border rounded-lg text-center text-white font-medium"
-                      />
-                      <TextInput
-                        value={set.reps}
-                        onChangeText={(v) => updateSet(eIndex, sIndex, 'reps', v)}
-                        editable={!set.completed}
-                        keyboardType="number-pad"
-                        className="flex-1 h-12 bg-background border border-border rounded-lg text-center text-white font-medium"
-                      />
-                      <Pressable
-                        onPress={() => updateSet(eIndex, sIndex, 'completed', !set.completed)}
-                        className={`w-14 h-12 rounded-xl items-center justify-center ${
-                          set.completed
-                            ? 'bg-green-500'
-                            : 'bg-surface border-2 border-border'
-                        }`}
-                      >
-                        <Text className={set.completed ? 'text-white text-lg' : 'text-transparent'}>
-                          ✓
-                        </Text>
-                      </Pressable>
-                    </View>
+              <View className="p-2 gap-2">
+                <View className="flex-row px-2">
+                  <Text className="w-8 text-xs font-semibold text-gray-500 uppercase">Set</Text>
+                  <Text className="flex-1 text-xs font-semibold text-gray-500 uppercase text-center">
+                    lbs
+                  </Text>
+                  <Text className="flex-1 text-xs font-semibold text-gray-500 uppercase text-center">
+                    Reps
+                  </Text>
+                  <Text className="w-14 text-xs font-semibold text-gray-500 uppercase text-center">
+                    Done
+                  </Text>
+                </View>
 
-                    {/* RPE chip row — a horizontal picker beats a native <select> for a
-                        gym-floor, one-thumb interaction. */}
-                    <View className="flex-row gap-1.5 pl-10">
-                      {Array.from({ length: 10 }, (_, i) => String(i + 1)).map((n) => (
+                {exercise.sets.map((set, sIndex) => {
+                  const e1RM = calculateE1RM(set.weight, set.reps);
+                  return (
+                    <View
+                      key={set.id}
+                      className={`gap-2 p-2 rounded-xl ${set.completed ? 'bg-green-900/10' : ''}`}
+                    >
+                      <View className="flex-row items-center gap-2">
+                        <Text className="w-8 text-gray-400 font-medium text-sm text-center">
+                          {sIndex + 1}
+                        </Text>
+                        <TextInput
+                          value={set.weight}
+                          onChangeText={(v) => updateSet(eIndex, sIndex, 'weight', v)}
+                          editable={!set.completed}
+                          keyboardType="decimal-pad"
+                          className="flex-1 h-12 bg-background border border-border rounded-xl text-center text-white font-medium"
+                        />
+                        <TextInput
+                          value={set.reps}
+                          onChangeText={(v) => updateSet(eIndex, sIndex, 'reps', v)}
+                          editable={!set.completed}
+                          keyboardType="number-pad"
+                          className="flex-1 h-12 bg-background border border-border rounded-xl text-center text-white font-medium"
+                        />
                         <Pressable
-                          key={n}
-                          disabled={set.completed}
-                          onPress={() => updateSet(eIndex, sIndex, 'rpe', n)}
-                          className={`w-7 h-7 rounded-md items-center justify-center ${
-                            set.rpe === n ? 'bg-primary' : 'bg-background border border-border'
-                          }`}
+                          onPress={() => updateSet(eIndex, sIndex, 'completed', !set.completed)}
                         >
-                          <Text
-                            className={`text-xs font-medium ${
-                              set.rpe === n ? 'text-white' : 'text-gray-400'
+                          <MotiView
+                            animate={{ scale: set.completed ? 1 : 1 }}
+                            transition={{ type: 'timing', duration: 150 }}
+                            className={`w-14 h-12 rounded-xl items-center justify-center ${
+                              set.completed
+                                ? 'bg-green-500'
+                                : 'bg-surface border-2 border-border'
                             }`}
                           >
-                            {n}
-                          </Text>
+                            <Ionicons
+                              name={set.completed ? 'checkmark' : 'checkmark-outline'}
+                              size={22}
+                              color={set.completed ? '#fff' : 'transparent'}
+                            />
+                          </MotiView>
                         </Pressable>
-                      ))}
-                    </View>
-
-                    <View className="flex-row items-center justify-between pl-10">
-                      <View className="bg-primary/10 px-2 py-1 rounded">
-                        <Text className="text-primary text-xs font-semibold">
-                          e1RM: {e1RM} lbs
-                        </Text>
                       </View>
-                      {videoKeys[set.id] ? (
-                        <Pressable
-                          onPress={() =>
-                            setViewingSetId((cur) => (cur === set.id ? null : set.id))
-                          }
-                          className="bg-green-500/15 px-2 py-1 rounded"
-                        >
-                          <Text className="text-green-400 text-xs font-medium">
-                            {viewingSetId === set.id ? 'Hide clip' : 'View clip'}
-                          </Text>
-                        </Pressable>
-                      ) : (
-                        !set.completed && (
+
+                      {/* RPE chip row — a horizontal picker beats a native <select> for a
+                          gym-floor, one-thumb interaction. */}
+                      <View className="flex-row gap-1.5 pl-10">
+                        {Array.from({ length: 10 }, (_, i) => String(i + 1)).map((n) => (
                           <Pressable
-                            onPress={() => void attachClip(set.id)}
-                            disabled={uploadingSetId === set.id}
-                            className="bg-border/40 px-2 py-1 rounded"
+                            key={n}
+                            disabled={set.completed}
+                            onPress={() => updateSet(eIndex, sIndex, 'rpe', n)}
+                            className={`w-7 h-7 rounded-md items-center justify-center ${
+                              set.rpe === n ? 'bg-primary' : 'bg-background border border-border'
+                            }`}
                           >
-                            <Text className="text-gray-400 text-xs font-medium">
-                              {uploadingSetId === set.id ? 'Uploading…' : '+ Form clip'}
+                            <Text
+                              className={`text-xs font-medium ${
+                                set.rpe === n ? 'text-white' : 'text-gray-400'
+                              }`}
+                            >
+                              {n}
                             </Text>
                           </Pressable>
-                        )
+                        ))}
+                      </View>
+
+                      <View className="flex-row items-center justify-between pl-10">
+                        <View className="bg-primary/10 px-2 py-1 rounded-full">
+                          <Text className="text-primary text-xs font-semibold">
+                            e1RM: {e1RM} lbs
+                          </Text>
+                        </View>
+                        {videoKeys[set.id] ? (
+                          <Pressable
+                            onPress={() =>
+                              setViewingSetId((cur) => (cur === set.id ? null : set.id))
+                            }
+                            className="flex-row items-center gap-1 bg-green-500/15 px-2 py-1 rounded-full"
+                          >
+                            <Ionicons name="videocam-outline" size={12} color="#4ADE80" />
+                            <Text className="text-green-400 text-xs font-medium">
+                              {viewingSetId === set.id ? 'Hide clip' : 'View clip'}
+                            </Text>
+                          </Pressable>
+                        ) : (
+                          !set.completed && (
+                            <Pressable
+                              onPress={() => void attachClip(set.id)}
+                              disabled={uploadingSetId === set.id}
+                              className="flex-row items-center gap-1 bg-border/40 px-2 py-1 rounded-full"
+                            >
+                              <Ionicons name="camera-outline" size={12} color="#9CA3AF" />
+                              <Text className="text-gray-400 text-xs font-medium">
+                                {uploadingSetId === set.id ? 'Uploading…' : 'Form clip'}
+                              </Text>
+                            </Pressable>
+                          )
+                        )}
+                      </View>
+
+                      {viewingSetId === set.id && videoKeys[set.id] && (
+                        <View className="pl-10">
+                          <MediaViewer objectKey={videoKeys[set.id]} />
+                        </View>
                       )}
                     </View>
-
-                    {viewingSetId === set.id && videoKeys[set.id] && (
-                      <View className="pl-10">
-                        <MediaViewer objectKey={videoKeys[set.id]} />
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          </View>
+                  );
+                })}
+              </View>
+            </Card>
+          </FadeInView>
         ))}
 
         {media.error && (
@@ -391,34 +407,56 @@ export default function GymLogger({
         {footer}
       </ScrollView>
 
-      {restTimerActive && (
-        <View className="absolute bottom-4 left-4 right-4">
-          <View className="bg-surface border border-primary/30 rounded-2xl p-4 flex-row items-center justify-between">
-            <View>
-              <Text className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                Resting
-              </Text>
-              <Text className="text-2xl font-bold text-white tracking-widest">
-                {formatTime(restSecondsRemaining)}
-              </Text>
+      <AnimatePresence>
+        {restTimerActive && (
+          <MotiView
+            from={{ opacity: 0, translateY: 30 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            exit={{ opacity: 0, translateY: 30 }}
+            transition={{ type: 'timing', duration: 220 }}
+            className="absolute bottom-4 left-4 right-4"
+          >
+            <View
+              className="bg-surface border border-primary/30 rounded-2xl p-4 flex-row items-center justify-between"
+              style={{
+                shadowColor: '#3B82F6',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 6,
+              }}
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="w-9 h-9 rounded-full bg-primary/15 items-center justify-center">
+                  <Ionicons name="hourglass-outline" size={18} color="#3B82F6" />
+                </View>
+                <View>
+                  <Text className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                    Resting
+                  </Text>
+                  <Text className="text-2xl font-bold text-white tracking-widest">
+                    {formatTime(restSecondsRemaining)}
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row gap-2">
+                <Pressable
+                  onPress={() => setRestSecondsRemaining((p) => p + 30)}
+                  className="w-10 h-10 bg-background border border-border rounded-xl items-center justify-center"
+                >
+                  <Text className="text-white text-xs font-medium">+30</Text>
+                </Pressable>
+                <Pressable
+                  onPress={cancelRestTimer}
+                  className="w-10 h-10 bg-background border border-border rounded-xl items-center justify-center"
+                >
+                  <Ionicons name="close" size={16} color="#F87171" />
+                </Pressable>
+              </View>
             </View>
-            <View className="flex-row gap-2">
-              <Pressable
-                onPress={() => setRestSecondsRemaining((p) => p + 30)}
-                className="w-10 h-10 bg-background border border-border rounded-lg items-center justify-center"
-              >
-                <Text className="text-white text-xs font-medium">+30</Text>
-              </Pressable>
-              <Pressable
-                onPress={cancelRestTimer}
-                className="w-10 h-10 bg-background border border-border rounded-lg items-center justify-center"
-              >
-                <Text className="text-red-400 text-xs font-medium">Skip</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      )}
+          </MotiView>
+        )}
+      </AnimatePresence>
     </View>
   );
 }

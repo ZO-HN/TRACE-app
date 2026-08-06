@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { AnimatePresence, MotiView } from 'moti';
 import { useOutboxStore } from '../lib/outbox/outboxStore';
 import { isValidSetInput, toSetLogInsert } from '../lib/outbox/mapSetLog';
@@ -255,11 +256,16 @@ export default function GymLogger({
               {exercises.length} exercise{exercises.length === 1 ? '' : 's'}
             </Text>
           </View>
-          {pendingCount > 0 && (
-            <Badge tone="primary" pulse>
-              {pendingCount} queued
-            </Badge>
-          )}
+          <View className="flex-row items-center gap-3">
+            {pendingCount > 0 && (
+              <Badge tone="primary" pulse>
+                {pendingCount} queued
+              </Badge>
+            )}
+            <Pressable onPress={() => router.push('/workouts')}>
+              <Ionicons name="folder-outline" size={20} color="#9CA3AF" />
+            </Pressable>
+          </View>
         </View>
 
         {exercises.map((exercise, eIndex) => (

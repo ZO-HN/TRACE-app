@@ -15,3 +15,44 @@ export interface NutritionLogInsert {
   calories?: number | null;
   photo_s3_key?: string | null;
 }
+
+// The following four map to draft tables — see
+// docs/migrations-drafts/003_nutrition_extensions.sql. None exist yet;
+// their hooks (useCustomFoods, useFavoriteFoods, useSupplements,
+// useMealTemplates) degrade to an empty list until applied.
+
+export interface FoodMacros {
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  calories: number | null;
+}
+
+export interface CustomFood extends FoodMacros {
+  id: string;
+  name: string;
+}
+
+/** A favorited food — a denormalized name+macro snapshot, not a pointer
+ * into custom_foods/nutrition_logs, so favoriting never breaks if the
+ * source row is later edited or deleted. */
+export interface FavoriteFood extends FoodMacros {
+  id: string;
+  name: string;
+}
+
+/** Reference data (coach/admin-seeded), read-only to clients. */
+export interface Supplement extends FoodMacros {
+  id: string;
+  name: string;
+}
+
+export interface MealTemplateItem extends FoodMacros {
+  name: string;
+}
+
+export interface MealTemplate {
+  id: string;
+  name: string;
+  items: MealTemplateItem[];
+}

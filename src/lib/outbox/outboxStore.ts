@@ -3,7 +3,7 @@
 // then update the mirror.
 
 import { create } from 'zustand';
-import type { OutboxItem, SetLogInsert, WorkoutSessionInsert } from './types';
+import type { NutritionLogInsert, OutboxItem, SetLogInsert, WorkoutSessionInsert } from './types';
 import { getAllOutboxItems, putOutboxItem } from './db';
 
 interface OutboxState {
@@ -12,6 +12,8 @@ interface OutboxState {
   hydrate: () => Promise<void>;
   /** Persist a new set log and mark it pending. */
   enqueueSetLog: (payload: SetLogInsert) => Promise<OutboxItem>;
+  /** Persist a new nutrition log and mark it pending. */
+  enqueueNutritionLog: (payload: NutritionLogInsert) => Promise<OutboxItem>;
   /**
    * Queue (or refresh) the parent workout_sessions row. Sessions are
    * insert-once under RLS, so once the item is synced this is a no-op;
@@ -33,6 +35,20 @@ export const useOutboxStore = create<OutboxState>((set, get) => ({
     const item: OutboxItem = {
       id: payload.id,
       table: 'set_logs',
+      payload,
+      status: 'pending',
+      attempts: 0,
+      updated_at: new Date().toISOString(),
+    };
+    await putOutboxItem(item);
+    set({ items: [...get().items.filter((i) => i.id !== item.id), item] });
+    return item;
+  },
+
+  enqueueNutritionLog: async (payload) => {
+    const item: OutboxItem = {
+      id: payload.id,
+      table: 'nutrition_logs',
       payload,
       status: 'pending',
       attempts: 0,

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useNutritionLogs } from '../hooks/useNutritionLogs';
 import { parseQuickEntry } from '../lib/nutrition/parseQuickEntry';
 import Button from './ui/Button';
@@ -27,30 +28,6 @@ function MacroPreview({ text }: { text: string }) {
         </View>
       ))}
     </View>
-  );
-}
-
-// Barcode/photo capture are recorded methods in the schema but not resolved
-// to macros anywhere yet — same "documented placeholder" status as the AI
-// chat's RAG pipeline. Honest about that rather than half-wiring a camera
-// flow with nothing on the other end.
-function ComingSoonButton({
-  label,
-  icon,
-}: {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}) {
-  return (
-    <Pressable
-      onPress={() =>
-        Alert.alert('Coming soon', `${label} isn't wired up yet — log manually for now.`)
-      }
-      className="flex-1 h-11 bg-background border border-border rounded-xl items-center justify-center flex-row gap-1.5"
-    >
-      <Ionicons name={icon} size={15} color="#6B7280" />
-      <Text className="text-gray-400 text-xs font-medium">{label}</Text>
-    </Pressable>
   );
 }
 
@@ -107,10 +84,13 @@ export default function NutritionLogger({ userId }: { userId: string }) {
           </Button>
         </View>
 
-        <View className="flex-row gap-2 mt-2">
-          <ComingSoonButton label="Scan barcode" icon="barcode-outline" />
-          <ComingSoonButton label="Snap a photo" icon="camera-outline" />
-        </View>
+        <Pressable
+          onPress={() => router.push('/nutrition/add-meal')}
+          className="mt-2 h-11 bg-background border border-border rounded-xl items-center justify-center flex-row gap-1.5"
+        >
+          <Ionicons name="fast-food-outline" size={15} color="#9CA3AF" />
+          <Text className="text-gray-300 text-xs font-medium">Add to meal (Favorites, Custom, Supplements…)</Text>
+        </Pressable>
       </Card>
 
       {isLoading ? (

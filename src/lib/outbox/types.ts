@@ -1,6 +1,10 @@
 // Outbox types for offline session logging.
 // See docs/specs/offline-sync-outbox.md.
 
+import type { NutritionLogInsert } from '../nutrition/types';
+
+export type { NutritionLogInsert };
+
 /**
  * Insert payload for public.set_logs.
  *
@@ -39,13 +43,13 @@ export interface WorkoutSessionInsert {
 
 export type OutboxStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
-export type OutboxTable = 'workout_sessions' | 'set_logs';
+export type OutboxTable = 'workout_sessions' | 'set_logs' | 'nutrition_logs';
 
 export interface OutboxItem {
   id: string; // mirrors payload.id — the idempotency key
   /** Target table. Items persisted before this field existed are set_logs. */
   table?: OutboxTable;
-  payload: SetLogInsert | WorkoutSessionInsert;
+  payload: SetLogInsert | WorkoutSessionInsert | NutritionLogInsert;
   status: OutboxStatus;
   attempts: number;
   updated_at: string; // ISO timestamp

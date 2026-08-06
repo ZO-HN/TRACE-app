@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { MotiView } from 'moti';
 import { usePersonalRecords } from '../hooks/usePersonalRecords';
 import { useMuscleAnalytics } from '../hooks/useMuscleAnalytics';
@@ -178,6 +179,16 @@ function MuscleAnalytics({ userId }: { userId: string }) {
 export default function StatsScreen({ userId }: { userId: string }) {
   return (
     <View className="gap-8">
+      <Pressable
+        onPress={() => router.push('/leaderboards')}
+        className="flex-row items-center justify-between bg-surface border border-border rounded-2xl px-4 py-3.5"
+      >
+        <View className="flex-row items-center gap-2">
+          <Ionicons name="trophy-outline" size={18} color="#FBBF24" />
+          <Text className="text-white font-semibold">Leaderboards</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+      </Pressable>
       <WorkoutGenerator userId={userId} />
       <PersonalRecordsList userId={userId} />
       <MuscleAnalytics userId={userId} />

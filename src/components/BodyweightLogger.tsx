@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useBodyweightLogs } from '../hooks/useBodyweightLogs';
 import { isValidBodyweightLbs } from '../lib/bodyweight/mapBodyweight';
 import { latestTrend } from '../lib/bodyweight/trend';
@@ -51,9 +52,19 @@ export default function BodyweightLogger({ userId }: { userId: string }) {
   return (
     <View className="gap-4">
       <Card className="p-4">
-        <View className="flex-row items-center gap-2 mb-3">
-          <Ionicons name="body-outline" size={16} color="#3B82F6" />
-          <Text className="text-sm font-semibold text-white">Log today's weight</Text>
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="body-outline" size={16} color="#3B82F6" />
+            <Text className="text-sm font-semibold text-white">Log today's weight</Text>
+          </View>
+          <View className="flex-row items-center gap-3">
+            <Pressable onPress={() => router.push('/bodyweight/history')}>
+              <Ionicons name="bar-chart-outline" size={18} color="#9CA3AF" />
+            </Pressable>
+            <Pressable onPress={() => router.push('/bodyweight/settings')}>
+              <Ionicons name="settings-outline" size={18} color="#9CA3AF" />
+            </Pressable>
+          </View>
         </View>
         <View className="flex-row gap-2">
           <TextInput

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,7 +15,7 @@ const UNFOLDERED = 'none';
 
 export default function WorkoutsIndexScreen() {
   const { profile } = useTraceUserContext();
-  const { folders, refresh: refreshFolders } = useWorkoutFolders(profile!.id);
+  const { folders, refresh: refreshFolders, deleteFolder } = useWorkoutFolders(profile!.id);
   const {
     templates,
     isLoading,
@@ -70,6 +70,21 @@ export default function WorkoutsIndexScreen() {
               <View key={key} className="gap-2">
                 <Pressable
                   onPress={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))}
+                  onLongPress={() => {
+                    if (!group.folder) return;
+                    Alert.alert(
+                      `Delete "${group.folder.name}"?`,
+                      'Workouts inside will move to "My Workouts", not be deleted.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => void deleteFolder(group.folder!.id),
+                        },
+                      ],
+                    );
+                  }}
                   className="flex-row items-center gap-2 px-1"
                 >
                   <Ionicons name={isCollapsed ? 'chevron-forward' : 'chevron-down'} size={16} color="#9CA3AF" />

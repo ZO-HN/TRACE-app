@@ -9,11 +9,19 @@ import { useWorkoutTemplates } from '../../src/hooks/useWorkoutTemplates';
 import { groupByFolder } from '../../src/lib/workout/folders';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
+import Select from '../../src/components/ui/Select';
+
+const UNFOLDERED = 'none';
 
 export default function WorkoutsIndexScreen() {
   const { profile } = useTraceUserContext();
   const { folders, refresh: refreshFolders } = useWorkoutFolders(profile!.id);
-  const { templates, isLoading, refresh: refreshTemplates } = useWorkoutTemplates(profile!.id);
+  const {
+    templates,
+    isLoading,
+    refresh: refreshTemplates,
+    moveToFolder,
+  } = useWorkoutTemplates(profile!.id);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   // This screen stays mounted underneath the "New Folder" modal (Stack
@@ -82,6 +90,18 @@ export default function WorkoutsIndexScreen() {
                         </View>
                       </View>
                       <Text className="text-xs text-gray-500">{t.exerciseCount} exercises</Text>
+                      {folders.length > 0 && (
+                        <Select
+                          value={t.folderId ?? UNFOLDERED}
+                          options={[
+                            { value: UNFOLDERED, label: 'No folder' },
+                            ...folders.map((f) => ({ value: f.id, label: f.name })),
+                          ]}
+                          onChange={(value) =>
+                            void moveToFolder(t.id, value === UNFOLDERED ? null : value)
+                          }
+                        />
+                      )}
                       <Button
                         size="sm"
                         onPress={() =>

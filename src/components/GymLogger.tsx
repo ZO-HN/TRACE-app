@@ -74,17 +74,24 @@ function formatTime(totalSeconds: number): string {
 export default function GymLogger({
   userId,
   footer,
+  overrideTemplateId,
 }: {
   userId: string;
   /** Rendered after the exercise list, inside the same scroll container. */
   footer?: ReactNode;
+  /** Load this specific template (e.g. tapped from "My Workouts") instead
+   * of the usual assigned/most-recent-PRIVATE auto-resolution. */
+  overrideTemplateId?: string | null;
 }) {
   const [exercises, setExercises] = useState<Exercise[]>(initialWorkout);
 
-  // Real workout content (coach-assigned template). Falls back to the
-  // built-in placeholder when nothing loads (offline / not yet assigned).
-  const { templateId, templateName, exercises: templateExercises } =
-    useAssignedWorkout(userId);
+  // Real workout content (coach-assigned template, or overrideTemplateId
+  // when the trainee explicitly picked one). Falls back to the built-in
+  // placeholder when nothing loads (offline / not yet assigned).
+  const { templateId, templateName, exercises: templateExercises } = useAssignedWorkout(
+    userId,
+    overrideTemplateId,
+  );
 
   // Offline outbox: completed sets are queued locally (SQLite) and flushed
   // to Supabase by useOutboxSync (mounted higher up) when connectivity returns.

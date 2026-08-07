@@ -1,10 +1,14 @@
-// Loads the trainee's real workout content, in priority order:
+// Loads the trainee's real workout content. With no override, priority
+// order is:
 //   1. The coach's ASSIGNED template (earliest week/day first).
 //   2. The trainee's own most recent self-generated PRIVATE template
 //      (see useWorkoutGenerator) — day_number ASC so a multi-day generated
 //      split starts at Day 1, most-recently-generated split wins ties.
-// Returns null content when neither loads (offline / empty DB / nothing
-// yet) so the logger can fall back to its hardcoded placeholder.
+// Passing overrideTemplateId (e.g. from the "My Workouts" list's Start
+// Workout button) skips that resolution and loads that specific template
+// instead — still subject to the same is_active/RLS-visible constraints.
+// Returns null content when nothing loads (offline / empty DB / not found)
+// so the logger can fall back to its hardcoded placeholder.
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -20,7 +24,19 @@ export interface AssignedWorkout {
   exercises: LoggerExercise[] | null;
 }
 
-async function findTemplate(userId: string) {
+async function findTemplate(userId: string, overrideTemplateId?: string | null) {
+  if (overrideTemplateId) {
+    const { data: chosen } = await supabase
+      .from('workout_templates')
+      .select('id, name')
+      .eq('id', overrideTemplateId)
+      .eq('is_active', true)
+      .limit(1);
+    if (chosen?.[0]) return chosen[0];
+    // Not found/visible under RLS — fall through to normal resolution
+    // rather than silently showing nothing.
+  }
+
   const { data: assigned } = await supabase
     .from('workout_templates')
     .select('id, name')
@@ -46,7 +62,10 @@ async function findTemplate(userId: string) {
   return own?.[0] ?? null;
 }
 
-export function useAssignedWorkout(userId: string): AssignedWorkout {
+export function useAssignedWorkout(
+  userId: string,
+  overrideTemplateId?: string | null,
+): AssignedWorkout {
   const [workout, setWorkout] = useState<AssignedWorkout>({
     templateId: null,
     templateName: null,
@@ -58,7 +77,7 @@ export function useAssignedWorkout(userId: string): AssignedWorkout {
 
     (async () => {
       try {
-        const template = await findTemplate(userId);
+        const template = await findTemplate(userId, overrideTemplateId);
         if (!template || cancelled) return;
 
         const { data: items, error: itemsError } = await supabase
@@ -81,7 +100,7 @@ export function useAssignedWorkout(userId: string): AssignedWorkout {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, overrideTemplateId]);
 
   return workout;
 }

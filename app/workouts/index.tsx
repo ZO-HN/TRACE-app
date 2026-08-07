@@ -71,7 +71,12 @@ export default function WorkoutsIndexScreen() {
                         </View>
                       </View>
                       <Text className="text-xs text-gray-500">{t.exerciseCount} exercises</Text>
-                      <Button size="sm" onPress={() => router.push('/(tabs)')}>
+                      <Button
+                        size="sm"
+                        onPress={() =>
+                          router.push({ pathname: '/(tabs)', params: { templateId: t.id } })
+                        }
+                      >
                         Start Workout
                       </Button>
                     </Card>

@@ -27,7 +27,8 @@
       "expo-sqlite",
       "expo-video",
       "expo-notifications",
-      "expo-font"
+      "expo-font",
+      "expo-web-browser"
     ]
   }
 }

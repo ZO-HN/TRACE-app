@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { supabase } from '../../lib/supabase';
+import { signInWithGoogle } from '../../lib/auth/googleOAuth';
 import Button from '../ui/Button';
 
 type Mode = 'sign-in' | 'sign-up';
@@ -34,13 +35,6 @@ function InputField({
 // Every account created here is a trainee — this app never sends a `role`
 // in signup metadata, so handle_new_user() defaults it to 'trainee' and
 // auto-assigns coach_id from platform_settings.default_coach_id.
-
-// TODO(demo): sign-up is hidden for demo purposes (2026-08-08, requested
-// in-session). Revert by deleting this constant and the `!DEMO_HIDE_SIGN_UP
-// &&` guard below the form to restore the "Don't have an account? Sign up"
-// toggle.
-const DEMO_HIDE_SIGN_UP = true;
-
 export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
@@ -48,9 +42,20 @@ export default function AuthScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isSignUp = mode === 'sign-up';
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError(null);
+    const result = await signInWithGoogle();
+    setGoogleLoading(false);
+    if (!result.ok && !result.cancelled) {
+      setError(result.error ?? 'Could not sign in with Google.');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!email.trim() || !password) {
@@ -178,19 +183,37 @@ export default function AuthScreen() {
           </View>
         </MotiView>
 
-        {!DEMO_HIDE_SIGN_UP && (
-          <Pressable
-            onPress={() => {
-              setMode(isSignUp ? 'sign-in' : 'sign-up');
-              setError(null);
-            }}
+        <View className="flex-row items-center gap-3 mb-4">
+          <View className="flex-1 h-px bg-border" />
+          <Text className="text-xs text-gray-500 font-medium">OR</Text>
+          <View className="flex-1 h-px bg-border" />
+        </View>
+
+        <View className="mb-4">
+          <Button
+            onPress={() => void handleGoogleSignIn()}
+            loading={googleLoading}
+            disabled={loading}
+            variant="secondary"
+            fullWidth
+            size="lg"
+            icon={<Ionicons name="logo-google" size={18} color="#E5E7EB" />}
           >
-            <Text className="text-sm text-gray-400 text-center">
-              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-              <Text className="text-primary font-medium">{isSignUp ? 'Sign in' : 'Sign up'}</Text>
-            </Text>
-          </Pressable>
-        )}
+            Continue with Google
+          </Button>
+        </View>
+
+        <Pressable
+          onPress={() => {
+            setMode(isSignUp ? 'sign-in' : 'sign-up');
+            setError(null);
+          }}
+        >
+          <Text className="text-sm text-gray-400 text-center">
+            {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+            <Text className="text-primary font-medium">{isSignUp ? 'Sign in' : 'Sign up'}</Text>
+          </Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );

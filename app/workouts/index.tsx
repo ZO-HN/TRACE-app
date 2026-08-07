@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useWorkoutFolders } from '../../src/hooks/useWorkoutFolders';
 import { useWorkoutTemplates } from '../../src/hooks/useWorkoutTemplates';
@@ -12,9 +12,20 @@ import Button from '../../src/components/ui/Button';
 
 export default function WorkoutsIndexScreen() {
   const { profile } = useTraceUserContext();
-  const { folders } = useWorkoutFolders(profile!.id);
-  const { templates, isLoading } = useWorkoutTemplates(profile!.id);
+  const { folders, refresh: refreshFolders } = useWorkoutFolders(profile!.id);
+  const { templates, isLoading, refresh: refreshTemplates } = useWorkoutTemplates(profile!.id);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  // This screen stays mounted underneath the "New Folder" modal (Stack
+  // semantics), so router.back() doesn't remount it or rerun its initial
+  // fetch — without this, a newly created folder wouldn't show up until
+  // the user left and re-entered /workouts.
+  useFocusEffect(
+    useCallback(() => {
+      void refreshFolders();
+      void refreshTemplates();
+    }, [refreshFolders, refreshTemplates]),
+  );
 
   const groups = groupByFolder(templates, folders);
 

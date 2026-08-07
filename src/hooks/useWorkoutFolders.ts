@@ -14,6 +14,7 @@ export interface UseWorkoutFolders {
   folders: WorkoutFolder[];
   isLoading: boolean;
   isSupported: boolean;
+  refresh: () => Promise<void>;
   createFolder: (name: string) => Promise<{ ok: boolean; error?: string }>;
   renameFolder: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
   deleteFolder: (id: string) => Promise<{ ok: boolean; error?: string }>;
@@ -81,5 +82,5 @@ export function useWorkoutFolders(userId: string): UseWorkoutFolders {
     [refresh],
   );
 
-  return { folders, isLoading, isSupported, createFolder, renameFolder, deleteFolder };
+  return { folders, isLoading, isSupported, refresh, createFolder, renameFolder, deleteFolder };
 }

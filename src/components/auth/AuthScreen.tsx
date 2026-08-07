@@ -34,6 +34,13 @@ function InputField({
 // Every account created here is a trainee — this app never sends a `role`
 // in signup metadata, so handle_new_user() defaults it to 'trainee' and
 // auto-assigns coach_id from platform_settings.default_coach_id.
+
+// TODO(demo): sign-up is hidden for demo purposes (2026-08-08, requested
+// in-session). Revert by deleting this constant and the `!DEMO_HIDE_SIGN_UP
+// &&` guard below the form to restore the "Don't have an account? Sign up"
+// toggle.
+const DEMO_HIDE_SIGN_UP = true;
+
 export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
@@ -171,17 +178,19 @@ export default function AuthScreen() {
           </View>
         </MotiView>
 
-        <Pressable
-          onPress={() => {
-            setMode(isSignUp ? 'sign-in' : 'sign-up');
-            setError(null);
-          }}
-        >
-          <Text className="text-sm text-gray-400 text-center">
-            {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-            <Text className="text-primary font-medium">{isSignUp ? 'Sign in' : 'Sign up'}</Text>
-          </Text>
-        </Pressable>
+        {!DEMO_HIDE_SIGN_UP && (
+          <Pressable
+            onPress={() => {
+              setMode(isSignUp ? 'sign-in' : 'sign-up');
+              setError(null);
+            }}
+          >
+            <Text className="text-sm text-gray-400 text-center">
+              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+              <Text className="text-primary font-medium">{isSignUp ? 'Sign in' : 'Sign up'}</Text>
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );

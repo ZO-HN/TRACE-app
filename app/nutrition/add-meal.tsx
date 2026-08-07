@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
+import { useMealTemplates } from '../../src/hooks/useMealTemplates';
+import type { MealTemplateItem } from '../../src/lib/nutrition/types';
 import QuickAddTab from '../../src/components/nutrition/QuickAddTab';
 import FavoritesTab from '../../src/components/nutrition/FavoritesTab';
 import CustomFoodTab from '../../src/components/nutrition/CustomFoodTab';
 import SupplementsTab from '../../src/components/nutrition/SupplementsTab';
 import MealTemplatesTab from '../../src/components/nutrition/MealTemplatesTab';
+import Button from '../../src/components/ui/Button';
 
 type MealTab = 'quick' | 'favorites' | 'custom' | 'supplements' | 'meals';
 
@@ -24,7 +27,32 @@ export default function AddMealModal() {
   const { profile } = useTraceUserContext();
   const [tab, setTab] = useState<MealTab>('quick');
   const userId = profile!.id;
-  const onLogged = () => router.back();
+  const { saveTemplate } = useMealTemplates(userId);
+
+  // Items logged during this visit — kept around only so "Save as Meal" has
+  // something to bundle. The actual nutrition_logs write already happened
+  // (via the outbox) the moment each item was tapped; this is a template
+  // convenience, not the source of truth for what got logged.
+  const [loggedItems, setLoggedItems] = useState<MealTemplateItem[]>([]);
+  const [savingName, setSavingName] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const onLogged = (item: MealTemplateItem) => setLoggedItems((cur) => [...cur, item]);
+
+  const handleSaveTemplate = async () => {
+    if (savingName === null) {
+      setSavingName('');
+      return;
+    }
+    if (!savingName.trim()) return;
+    const result = await saveTemplate(savingName, loggedItems);
+    if (result.ok) {
+      setSavingName(null);
+      setSaveError(null);
+    } else {
+      setSaveError(result.error ?? 'Could not save that meal.');
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -32,7 +60,12 @@ export default function AddMealModal() {
         <Pressable onPress={() => router.back()}>
           <Ionicons name="close" size={22} color="#FFFFFF" />
         </Pressable>
-        <Text className="text-lg font-bold text-white">Meal</Text>
+        <Text className="text-lg font-bold text-white flex-1">
+          Meal{loggedItems.length > 0 ? ` (${loggedItems.length} logged)` : ''}
+        </Text>
+        <Pressable onPress={() => router.back()}>
+          <Text className="text-primary font-semibold">Done</Text>
+        </Pressable>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="border-b border-border">
@@ -58,6 +91,29 @@ export default function AddMealModal() {
         {tab === 'supplements' && <SupplementsTab userId={userId} onLogged={onLogged} />}
         {tab === 'meals' && <MealTemplatesTab userId={userId} onLogged={onLogged} />}
       </View>
+
+      {loggedItems.length > 0 && (
+        <View className="p-4 border-t border-border gap-2">
+          {savingName !== null && (
+            <TextInput
+              value={savingName}
+              onChangeText={setSavingName}
+              placeholder="Meal name"
+              placeholderTextColor="#6B7280"
+              autoFocus
+              className="h-11 bg-surface border border-border rounded-xl px-3 text-white"
+            />
+          )}
+          {saveError && <Text className="text-xs text-red-400">{saveError}</Text>}
+          <Button variant="secondary" size="sm" onPress={() => void handleSaveTemplate()}>
+            {savingName === null
+              ? 'Save these as a meal template'
+              : savingName.trim()
+                ? `Save "${savingName.trim()}"`
+                : 'Enter a name above'}
+          </Button>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

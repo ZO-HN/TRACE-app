@@ -2,9 +2,16 @@ import { useMemo, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { useNutritionLogs } from '../../hooks/useNutritionLogs';
 import { parseQuickEntry } from '../../lib/nutrition/parseQuickEntry';
+import type { MealTemplateItem } from '../../lib/nutrition/types';
 import Button from '../ui/Button';
 
-export default function QuickAddTab({ userId, onLogged }: { userId: string; onLogged: () => void }) {
+export default function QuickAddTab({
+  userId,
+  onLogged,
+}: {
+  userId: string;
+  onLogged: (item: MealTemplateItem) => void;
+}) {
   const { logEntry } = useNutritionLogs(userId);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -24,8 +31,8 @@ export default function QuickAddTab({ userId, onLogged }: { userId: string; onLo
     const result = await logEntry(text);
     setSubmitting(false);
     if (result.ok) {
+      onLogged({ name: text.trim(), ...parsed });
       setText('');
-      onLogged();
     } else {
       setError(result.error ?? 'Could not log that entry.');
     }

@@ -1,10 +1,17 @@
 import { ScrollView, View } from 'react-native';
 import { useSupplements } from '../../hooks/useSupplements';
 import { useLogFood } from '../../hooks/useLogFood';
+import type { MealTemplateItem } from '../../lib/nutrition/types';
 import FoodMacroRow from './FoodMacroRow';
 import EmptyTabState from './EmptyTabState';
 
-export default function SupplementsTab({ userId, onLogged }: { userId: string; onLogged: () => void }) {
+export default function SupplementsTab({
+  userId,
+  onLogged,
+}: {
+  userId: string;
+  onLogged: (item: MealTemplateItem) => void;
+}) {
   const { supplements, isLoading } = useSupplements();
   const logFood = useLogFood(userId);
 
@@ -28,7 +35,13 @@ export default function SupplementsTab({ userId, onLogged }: { userId: string; o
             macros={s}
             onLog={() => {
               void logFood(s.name, s);
-              onLogged();
+              onLogged({
+                name: s.name,
+                protein_g: s.protein_g,
+                carbs_g: s.carbs_g,
+                fat_g: s.fat_g,
+                calories: s.calories,
+              });
             }}
           />
         ))}

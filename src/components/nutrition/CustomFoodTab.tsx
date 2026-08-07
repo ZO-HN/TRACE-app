@@ -2,11 +2,18 @@ import { ScrollView, View } from 'react-native';
 import { useCustomFoods } from '../../hooks/useCustomFoods';
 import { useFavoriteFoods } from '../../hooks/useFavoriteFoods';
 import { useLogFood } from '../../hooks/useLogFood';
+import type { MealTemplateItem } from '../../lib/nutrition/types';
 import FoodMacroRow from './FoodMacroRow';
 import CreateFoodForm from './CreateFoodForm';
 import EmptyTabState from './EmptyTabState';
 
-export default function CustomFoodTab({ userId, onLogged }: { userId: string; onLogged: () => void }) {
+export default function CustomFoodTab({
+  userId,
+  onLogged,
+}: {
+  userId: string;
+  onLogged: (item: MealTemplateItem) => void;
+}) {
   const { foods, isLoading, createFood } = useCustomFoods(userId);
   const { addFavorite } = useFavoriteFoods(userId);
   const logFood = useLogFood(userId);
@@ -28,7 +35,13 @@ export default function CustomFoodTab({ userId, onLogged }: { userId: string; on
               macros={food}
               onLog={() => {
                 void logFood(food.name, food);
-                onLogged();
+                onLogged({
+                  name: food.name,
+                  protein_g: food.protein_g,
+                  carbs_g: food.carbs_g,
+                  fat_g: food.fat_g,
+                  calories: food.calories,
+                });
               }}
               onLongPress={() => void addFavorite(food.name, food)}
             />

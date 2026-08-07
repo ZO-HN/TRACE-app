@@ -1,11 +1,18 @@
 import { ScrollView, Text, View } from 'react-native';
 import { useMealTemplates } from '../../hooks/useMealTemplates';
 import { useLogFood } from '../../hooks/useLogFood';
+import type { MealTemplateItem } from '../../lib/nutrition/types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import EmptyTabState from '../nutrition/EmptyTabState';
 
-export default function MealTemplatesTab({ userId, onLogged }: { userId: string; onLogged: () => void }) {
+export default function MealTemplatesTab({
+  userId,
+  onLogged,
+}: {
+  userId: string;
+  onLogged: (item: MealTemplateItem) => void;
+}) {
   const { templates, isLoading } = useMealTemplates(userId);
   const logFood = useLogFood(userId);
 
@@ -32,8 +39,10 @@ export default function MealTemplatesTab({ userId, onLogged }: { userId: string;
             <Button
               size="sm"
               onPress={() => {
-                for (const item of template.items) void logFood(item.name, item);
-                onLogged();
+                for (const item of template.items) {
+                  void logFood(item.name, item);
+                  onLogged(item);
+                }
               }}
             >
               Log all

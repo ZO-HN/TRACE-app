@@ -60,6 +60,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="history" options={{ presentation: 'card' }} />
+          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
           <Stack.Screen name="bodyweight/settings" options={{ presentation: 'card' }} />
           <Stack.Screen name="bodyweight/history" options={{ presentation: 'card' }} />
           <Stack.Screen name="leaderboards/index" options={{ presentation: 'card' }} />

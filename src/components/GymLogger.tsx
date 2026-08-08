@@ -279,7 +279,7 @@ export default function GymLogger({
           <FadeInView key={exercise.id} delay={eIndex * 60}>
             <Card className="overflow-hidden">
               <View className="bg-border/30 px-4 py-3 border-b border-border flex-row items-center gap-2">
-                <Ionicons name="barbell-outline" size={16} color="#3B82F6" />
+                <Ionicons name="barbell-outline" size={16} color="#4ADE80" />
                 <Text className="text-lg font-semibold text-white">{exercise.name}</Text>
               </View>
 
@@ -430,7 +430,7 @@ export default function GymLogger({
             <View
               className="bg-surface border border-primary/30 rounded-2xl p-4 flex-row items-center justify-between"
               style={{
-                shadowColor: '#3B82F6',
+                shadowColor: '#4ADE80',
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.3,
                 shadowRadius: 12,
@@ -439,7 +439,7 @@ export default function GymLogger({
             >
               <View className="flex-row items-center gap-3">
                 <View className="w-9 h-9 rounded-full bg-primary/15 items-center justify-center">
-                  <Ionicons name="hourglass-outline" size={18} color="#3B82F6" />
+                  <Ionicons name="hourglass-outline" size={18} color="#4ADE80" />
                 </View>
                 <View>
                   <Text className="text-xs font-semibold text-gray-300 uppercase tracking-wider">

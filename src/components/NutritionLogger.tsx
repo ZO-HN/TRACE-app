@@ -86,7 +86,7 @@ export default function NutritionLogger({ userId }: { userId: string }) {
           onPress={() => setExtraSlots((n) => n + 1)}
           className="flex-row items-center justify-center gap-1.5 h-11 bg-surface border border-dashed border-border rounded-2xl"
         >
-          <Ionicons name="add-circle-outline" size={16} color="#3B82F6" />
+          <Ionicons name="add-circle-outline" size={16} color="#4ADE80" />
           <Text className="text-primary text-sm font-semibold">Add Meal</Text>
         </Pressable>
       </View>

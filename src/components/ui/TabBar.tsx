@@ -43,7 +43,7 @@ function TabButton<T extends string>({
         <Ionicons
           name={active ? tab.activeIcon : tab.icon}
           size={22}
-          color={active ? '#3B82F6' : '#6B7280'}
+          color={active ? '#4ADE80' : '#6B7280'}
         />
       </Animated.View>
       <Animated.Text

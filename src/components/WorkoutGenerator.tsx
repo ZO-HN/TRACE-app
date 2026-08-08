@@ -23,7 +23,7 @@ export default function WorkoutGenerator({ userId }: { userId: string }) {
     <Card className="p-4 gap-3">
       <View className="flex-row items-center gap-2">
         <View className="w-8 h-8 rounded-lg bg-primary/15 items-center justify-center">
-          <Ionicons name="sparkles-outline" size={16} color="#3B82F6" />
+          <Ionicons name="sparkles-outline" size={16} color="#4ADE80" />
         </View>
         <View className="flex-1">
           <Text className="text-sm font-semibold text-white">Generate a workout</Text>
@@ -82,7 +82,7 @@ export default function WorkoutGenerator({ userId }: { userId: string }) {
             loading={isSaving}
             variant="outline"
             fullWidth
-            icon={<Ionicons name="checkmark-circle-outline" size={16} color="#3B82F6" />}
+            icon={<Ionicons name="checkmark-circle-outline" size={16} color="#4ADE80" />}
           >
             Save as my next workout
           </Button>

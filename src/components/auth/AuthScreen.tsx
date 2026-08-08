@@ -109,7 +109,7 @@ export default function AuthScreen() {
           className="items-center mb-10"
         >
           <View className="w-16 h-16 rounded-2xl bg-primary/15 border border-primary/30 items-center justify-center mb-4">
-            <Ionicons name="barbell" size={30} color="#3B82F6" />
+            <Ionicons name="barbell" size={30} color="#4ADE80" />
           </View>
           <Text className="text-3xl font-bold text-white">TRACE</Text>
           <Text className="text-sm text-gray-400 mt-1">

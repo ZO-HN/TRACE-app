@@ -35,7 +35,7 @@ export default function ChatScreen({ myId, coachId }: { myId: string; coachId: s
     >
       <View className="flex-row items-center gap-2.5 px-4 py-3 border-b border-border">
         <View className="w-8 h-8 rounded-full bg-primary/15 border border-primary/30 items-center justify-center">
-          <Ionicons name="person-outline" size={16} color="#3B82F6" />
+          <Ionicons name="person-outline" size={16} color="#4ADE80" />
         </View>
         <Text className="text-white font-semibold">Your Coach</Text>
       </View>

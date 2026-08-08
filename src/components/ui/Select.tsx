@@ -47,7 +47,7 @@ export default function Select<T extends string>({
                 <Text className={`font-medium ${option.value === value ? 'text-primary' : 'text-white'}`}>
                   {option.label}
                 </Text>
-                {option.value === value && <Ionicons name="checkmark" size={18} color="#3B82F6" />}
+                {option.value === value && <Ionicons name="checkmark" size={18} color="#4ADE80" />}
               </Pressable>
             ))}
           </View>

@@ -77,7 +77,7 @@ export default function Button({
   };
 
   const label = loading ? (
-    <ActivityIndicator color={variant === 'primary' || variant === 'danger' ? '#fff' : '#3B82F6'} />
+    <ActivityIndicator color={variant === 'primary' || variant === 'danger' ? '#fff' : '#4ADE80'} />
   ) : (
     <>
       {icon}
@@ -95,7 +95,7 @@ export default function Button({
         className={`${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''} rounded-xl overflow-hidden`}
       >
         <LinearGradient
-          colors={['#3B82F6', '#2563EB']}
+          colors={['#4ADE80', '#22C55E']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           className={`${SIZE_STYLES[size]} flex-row items-center justify-center gap-2`}

@@ -54,7 +54,7 @@ export default function BodyweightLogger({ userId }: { userId: string }) {
       <Card className="p-4">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2">
-            <Ionicons name="body-outline" size={16} color="#3B82F6" />
+            <Ionicons name="body-outline" size={16} color="#4ADE80" />
             <Text className="text-sm font-semibold text-white">Log today's weight</Text>
           </View>
           <View className="flex-row items-center gap-3">

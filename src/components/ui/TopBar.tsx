@@ -22,7 +22,7 @@ export default function TopBar() {
 
         <View className="flex-row items-center gap-2">
           <View className="w-6 h-6 rounded-md bg-primary/20 border border-primary/40 items-center justify-center">
-            <Ionicons name="paw" size={14} color="#3B82F6" />
+            <Ionicons name="paw" size={14} color="#4ADE80" />
           </View>
           <Text className="text-white font-extrabold tracking-wide">TRACE</Text>
         </View>

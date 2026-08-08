@@ -14,7 +14,7 @@ export default function Switch({
       value={value}
       onValueChange={onValueChange}
       disabled={disabled}
-      trackColor={{ false: '#374151', true: '#3B82F6' }}
+      trackColor={{ false: '#374151', true: '#4ADE80' }}
       thumbColor="#F9FAFB"
     />
   );

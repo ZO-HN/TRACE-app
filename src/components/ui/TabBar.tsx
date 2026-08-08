@@ -62,7 +62,11 @@ export default function TabBar<T extends string>({
   onChange,
 }: {
   tabs: TabDef<T>[];
-  active: T;
+  // A plain string, not T — the caller may be on a screen that isn't any
+  // tab at all (e.g. the active-workout session, or messages reached via
+  // the top bar's chat icon instead of a bottom tab); in that case nothing
+  // should highlight, which `active === tab.key` already handles safely.
+  active: string;
   onChange: (tab: T) => void;
 }) {
   return (

@@ -6,7 +6,7 @@ import AppMenu from './AppMenu';
 
 /**
  * Persistent top bar for every tab screen — hamburger (left, opens a
- * right-side pop-out menu), placeholder logo + wordmark (center), bell
+ * left-side pop-out menu, matching where the icon lives), placeholder logo + wordmark (center), bell
  * (notifications) + chat (messages) icons (right). Matches the reference
  * app's header, which stays the same across Home/Workouts/Nutrition/etc.
  */

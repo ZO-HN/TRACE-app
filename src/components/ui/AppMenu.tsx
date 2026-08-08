@@ -74,7 +74,7 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="flex-1 bg-black/60" onPress={onClose}>
-        <Pressable className="absolute right-0 top-0 bottom-0 w-[78%] bg-background border-l border-border" onPress={() => {}}>
+        <Pressable className="absolute left-0 top-0 bottom-0 w-[78%] bg-background border-r border-border" onPress={() => {}}>
           <ScrollView contentContainerClassName="pt-14 pb-8">
             <MenuRow icon="person-outline" label="Account" onPress={() => comingSoon('Account settings')} />
             <MenuRow icon="notifications-outline" label="Notifications" onPress={() => go('/notifications')} />

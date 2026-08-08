@@ -260,17 +260,16 @@ export default function Dashboard({ userId }: { userId: string }) {
       </View>
 
       <View className="flex-row gap-3">
-        <DashCard title="Cardio" className="flex-1">
-          <Pressable onPress={() => comingSoon('Cardio tracking')} className="py-2">
+        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/progress')}>
+          <DashCard title="Cardio">
             <Text className="text-xs text-gray-500">Pick a cardio exercise to start tracking.</Text>
-          </Pressable>
-        </DashCard>
-        <DashCard title="Sleep" badge="No log" className="flex-1">
-          <Text className="text-xs text-gray-500">No data</Text>
-          <Button size="sm" variant="secondary" fullWidth onPress={() => comingSoon('Sleep tracking')}>
-            Log Sleep
-          </Button>
-        </DashCard>
+          </DashCard>
+        </Pressable>
+        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/progress')}>
+          <DashCard title="Sleep" badge="No log">
+            <Text className="text-xs text-gray-500">No data</Text>
+          </DashCard>
+        </Pressable>
       </View>
 
       <DashCard title="Physique">

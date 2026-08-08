@@ -5,13 +5,22 @@ import { router } from 'expo-router';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
 import { useBodyweightLogs } from '../hooks/useBodyweightLogs';
 import { useNutritionLogs } from '../hooks/useNutritionLogs';
+import { useSleepLogs } from '../hooks/useSleepLogs';
 import { buildDateStrip } from '../lib/dashboard/today';
 import { sumTodayMacros } from '../lib/dashboard/today';
 import { latestTrend } from '../lib/bodyweight/trend';
 import { isValidBodyweightLbs } from '../lib/bodyweight/mapBodyweight';
+import { durationHours, formatHours, lastNight } from '../lib/sleep/summary';
 import { kgToLbs } from '../lib/units';
 import Card from './ui/Card';
 import Button from './ui/Button';
+import LogSleepSheet from './sleep/LogSleepSheet';
+
+function daysAgoKey(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
 
 // This app has no unit-preference setting anywhere yet (Bodyweight Settings
 // only has moving-average window + reminders) — every other bodyweight
@@ -162,9 +171,12 @@ export default function Dashboard({ userId }: { userId: string }) {
   const { templateName, exercises } = useAssignedWorkout(userId);
   const { entries: bwEntries, logToday } = useBodyweightLogs(userId, 14);
   const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
+  const { logs: sleepLogs, logSleep } = useSleepLogs(userId, daysAgoKey(7));
   const [loggingWeight, setLoggingWeight] = useState(false);
   const [loggingSteps, setLoggingSteps] = useState(false);
   const [todaySteps, setTodaySteps] = useState<number | null>(null);
+  const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
+  const lastSleep = lastNight(sleepLogs);
 
   const trend = latestTrend(bwEntries);
   const macros = sumTodayMacros(nutritionEntries, today);
@@ -228,21 +240,27 @@ export default function Dashboard({ userId }: { userId: string }) {
       </View>
 
       <View className="flex-row gap-3">
-        <DashCard title="Bodyweight" badge={bwEntries.length > 0 ? undefined : 'No log'} className="flex-1">
-          {bwEntries.length > 0 && !loggingWeight ? (
-            <Text className="text-white text-lg font-bold">
-              {kgToLbs(bwEntries[0].weight_kg).toFixed(1)}{' '}
-              <Text className="text-xs text-gray-500 font-normal">{WEIGHT_UNIT}</Text>
-            </Text>
-          ) : null}
-          {loggingWeight ? (
-            <QuickLogWeight logToday={logToday} onDone={() => setLoggingWeight(false)} />
-          ) : (
-            <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingWeight(true)}>
-              Log Weight
-            </Button>
-          )}
-        </DashCard>
+        <Pressable
+          className="flex-1"
+          disabled={loggingWeight}
+          onPress={() => router.push('/(tabs)/progress')}
+        >
+          <DashCard title="Bodyweight" badge={bwEntries.length > 0 ? undefined : 'No log'}>
+            {bwEntries.length > 0 && !loggingWeight ? (
+              <Text className="text-white text-lg font-bold">
+                {kgToLbs(bwEntries[0].weight_kg).toFixed(1)}{' '}
+                <Text className="text-xs text-gray-500 font-normal">{WEIGHT_UNIT}</Text>
+              </Text>
+            ) : null}
+            {loggingWeight ? (
+              <QuickLogWeight logToday={logToday} onDone={() => setLoggingWeight(false)} />
+            ) : (
+              <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingWeight(true)}>
+                Log Weight
+              </Button>
+            )}
+          </DashCard>
+        </Pressable>
         <DashCard title="Steps" badge={todaySteps === null ? 'No log' : 'Today'} className="flex-1">
           {todaySteps !== null && !loggingSteps ? (
             <Text className="text-white text-lg font-bold">
@@ -265,12 +283,38 @@ export default function Dashboard({ userId }: { userId: string }) {
             <Text className="text-xs text-gray-500">Pick a cardio exercise to start tracking.</Text>
           </DashCard>
         </Pressable>
-        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/progress')}>
-          <DashCard title="Sleep" badge="No log">
-            <Text className="text-xs text-gray-500">No data</Text>
+        <Pressable className="flex-1" onPress={() => router.push('/sleep')}>
+          <DashCard title="Sleep" badge={lastSleep ? undefined : 'No log'}>
+            {lastSleep ? (
+              <>
+                <Text className="text-white text-lg font-bold">
+                  {formatHours(durationHours(lastSleep))}
+                </Text>
+                <Text className="text-xs text-gray-500">Quality {lastSleep.quality}/5</Text>
+              </>
+            ) : (
+              <Text className="text-xs text-gray-500">No data</Text>
+            )}
+            <Button size="sm" variant="secondary" fullWidth onPress={() => setSleepSheetOpen(true)}>
+              Log Sleep
+            </Button>
           </DashCard>
         </Pressable>
       </View>
+
+      <LogSleepSheet
+        visible={sleepSheetOpen}
+        onClose={() => setSleepSheetOpen(false)}
+        onSave={async (bedtime, wakeTime, quality) => {
+          await logSleep(
+            wakeTime.toISOString().slice(0, 10),
+            bedtime.toISOString(),
+            wakeTime.toISOString(),
+            quality,
+          );
+          setSleepSheetOpen(false);
+        }}
+      />
 
       <DashCard title="Physique">
         <Pressable

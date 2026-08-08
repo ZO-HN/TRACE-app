@@ -120,7 +120,7 @@ export default function WorkoutsIndexScreen() {
                       <Button
                         size="sm"
                         onPress={() =>
-                          router.push({ pathname: '/(tabs)', params: { templateId: t.id } })
+                          router.push({ pathname: '/(tabs)/session', params: { templateId: t.id } })
                         }
                       >
                         Start Workout

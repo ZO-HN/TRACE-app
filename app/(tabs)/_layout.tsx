@@ -32,7 +32,10 @@ export default function TabsLayout() {
   const router = useRouter();
   const segments = useSegments() as unknown as string[];
   // segments looks like ["(tabs)"] for index, or ["(tabs)", "nutrition"] etc.
-  const active = (segments[1] as Tab | undefined) ?? 'index';
+  // "session" (the active-workout screen) isn't its own tab — it's reached
+  // from the Log tab's Dashboard, so it should still highlight "Log".
+  const rawSegment = segments[1] as Tab | 'session' | undefined;
+  const active: Tab = rawSegment === 'session' ? 'index' : (rawSegment ?? 'index');
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>

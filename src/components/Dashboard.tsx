@@ -109,6 +109,53 @@ function QuickLogWeight({
   );
 }
 
+// No steps table/hook exists in this app at all (unlike bodyweight, which
+// has a real bodyweight_logs table) — this is session-local only, same
+// "documented, not silently fake" caveat as the Nutrition tab's extra meal
+// slots. Persisting it for real needs either a manual step-count table or
+// an actual Health Connect/HealthKit integration (the latter is exactly
+// what's already stubbed as "Coming soon" in Bodyweight Settings).
+function QuickLogSteps({ onSave, onDone }: { onSave: (steps: number) => void; onDone: () => void }) {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = () => {
+    const steps = parseInt(value, 10);
+    if (!Number.isFinite(steps) || steps < 0 || steps > 200_000) {
+      setError('Enter a realistic step count.');
+      return;
+    }
+    onSave(steps);
+    onDone();
+  };
+
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-center gap-2">
+        <TextInput
+          value={value}
+          onChangeText={setValue}
+          placeholder="steps"
+          placeholderTextColor="#6B7280"
+          keyboardType="number-pad"
+          autoFocus
+          className="flex-1 h-9 bg-background border border-border rounded-lg px-2 text-center text-white text-sm"
+        />
+        <Text className="text-xs text-gray-500">steps</Text>
+      </View>
+      {error && <Text className="text-[11px] text-red-400">{error}</Text>}
+      <View className="flex-row gap-2">
+        <Pressable onPress={onDone} className="flex-1 h-9 items-center justify-center">
+          <Text className="text-gray-500 text-xs font-medium">Cancel</Text>
+        </Pressable>
+        <Button size="sm" fullWidth onPress={handleSubmit} disabled={!value.trim()}>
+          Save
+        </Button>
+      </View>
+    </View>
+  );
+}
+
 export default function Dashboard({ userId }: { userId: string }) {
   const today = new Date();
   const dateStrip = buildDateStrip(today);
@@ -116,6 +163,8 @@ export default function Dashboard({ userId }: { userId: string }) {
   const { entries: bwEntries, logToday } = useBodyweightLogs(userId, 14);
   const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
   const [loggingWeight, setLoggingWeight] = useState(false);
+  const [loggingSteps, setLoggingSteps] = useState(false);
+  const [todaySteps, setTodaySteps] = useState<number | null>(null);
 
   const trend = latestTrend(bwEntries);
   const macros = sumTodayMacros(nutritionEntries, today);
@@ -194,10 +243,19 @@ export default function Dashboard({ userId }: { userId: string }) {
             </Button>
           )}
         </DashCard>
-        <DashCard title="Steps" badge="Today" className="flex-1">
-          <Button size="sm" variant="secondary" fullWidth onPress={() => comingSoon('Step tracking')}>
-            Connect Steps
-          </Button>
+        <DashCard title="Steps" badge={todaySteps === null ? 'No log' : 'Today'} className="flex-1">
+          {todaySteps !== null && !loggingSteps ? (
+            <Text className="text-white text-lg font-bold">
+              {todaySteps.toLocaleString()} <Text className="text-xs text-gray-500 font-normal">steps</Text>
+            </Text>
+          ) : null}
+          {loggingSteps ? (
+            <QuickLogSteps onSave={setTodaySteps} onDone={() => setLoggingSteps(false)} />
+          ) : (
+            <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingSteps(true)}>
+              Log Steps
+            </Button>
+          )}
         </DashCard>
       </View>
 

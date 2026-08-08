@@ -27,7 +27,7 @@ function Gate({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#3B82F6" />
+        <ActivityIndicator color="#4ADE80" />
       </SafeAreaView>
     );
   }
@@ -63,6 +63,10 @@ export default function RootLayout() {
           <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
           <Stack.Screen name="bodyweight/settings" options={{ presentation: 'card' }} />
           <Stack.Screen name="bodyweight/history" options={{ presentation: 'card' }} />
+          <Stack.Screen name="cardio/index" options={{ presentation: 'card' }} />
+          <Stack.Screen name="cardio/select" options={{ presentation: 'card' }} />
+          <Stack.Screen name="cardio/new" options={{ presentation: 'card' }} />
+          <Stack.Screen name="cardio/[exerciseId]" options={{ presentation: 'card' }} />
           <Stack.Screen name="leaderboards/index" options={{ presentation: 'card' }} />
           <Stack.Screen name="leaderboards/[exerciseId]" options={{ presentation: 'card' }} />
           <Stack.Screen name="workouts/index" options={{ presentation: 'card' }} />

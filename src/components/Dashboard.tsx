@@ -260,7 +260,7 @@ export default function Dashboard({ userId }: { userId: string }) {
       </View>
 
       <View className="flex-row gap-3">
-        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/progress')}>
+        <Pressable className="flex-1" onPress={() => router.push('/cardio')}>
           <DashCard title="Cardio">
             <Text className="text-xs text-gray-500">Pick a cardio exercise to start tracking.</Text>
           </DashCard>

@@ -1,4 +1,5 @@
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
@@ -7,9 +8,17 @@ import { useNutritionLogs } from '../hooks/useNutritionLogs';
 import { buildDateStrip } from '../lib/dashboard/today';
 import { sumTodayMacros } from '../lib/dashboard/today';
 import { latestTrend } from '../lib/bodyweight/trend';
+import { isValidBodyweightLbs } from '../lib/bodyweight/mapBodyweight';
 import { kgToLbs } from '../lib/units';
 import Card from './ui/Card';
 import Button from './ui/Button';
+
+// This app has no unit-preference setting anywhere yet (Bodyweight Settings
+// only has moving-average window + reminders) — every other bodyweight
+// entry point (BodyweightLogger, the history table) already defaults to
+// lbs, so the inline quick-log below matches that rather than inventing a
+// unit toggle that doesn't exist in Settings.
+const WEIGHT_UNIT = 'lbs';
 
 function Badge({ children }: { children: string }) {
   return (
@@ -45,12 +54,68 @@ function comingSoon(feature: string) {
   Alert.alert('Coming soon', `${feature} isn't available yet.`);
 }
 
+function QuickLogWeight({
+  logToday,
+  onDone,
+}: {
+  logToday: (weightLbs: number, note?: string) => Promise<{ ok: boolean; error?: string }>;
+  onDone: () => void;
+}) {
+  const [value, setValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    const lbs = parseFloat(value);
+    if (!isValidBodyweightLbs(lbs)) {
+      setError('Enter a realistic bodyweight.');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const result = await logToday(lbs);
+    setSubmitting(false);
+    if (result.ok) {
+      onDone();
+    } else {
+      setError(result.error ?? 'Could not log that entry.');
+    }
+  };
+
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-center gap-2">
+        <TextInput
+          value={value}
+          onChangeText={setValue}
+          placeholder={WEIGHT_UNIT}
+          placeholderTextColor="#6B7280"
+          keyboardType="decimal-pad"
+          autoFocus
+          className="flex-1 h-9 bg-background border border-border rounded-lg px-2 text-center text-white text-sm"
+        />
+        <Text className="text-xs text-gray-500">{WEIGHT_UNIT}</Text>
+      </View>
+      {error && <Text className="text-[11px] text-red-400">{error}</Text>}
+      <View className="flex-row gap-2">
+        <Pressable onPress={onDone} className="flex-1 h-9 items-center justify-center">
+          <Text className="text-gray-500 text-xs font-medium">Cancel</Text>
+        </Pressable>
+        <Button size="sm" fullWidth onPress={() => void handleSubmit()} loading={submitting} disabled={!value.trim()}>
+          Save
+        </Button>
+      </View>
+    </View>
+  );
+}
+
 export default function Dashboard({ userId }: { userId: string }) {
   const today = new Date();
   const dateStrip = buildDateStrip(today);
   const { templateName, exercises } = useAssignedWorkout(userId);
-  const { entries: bwEntries } = useBodyweightLogs(userId, 14);
+  const { entries: bwEntries, logToday } = useBodyweightLogs(userId, 14);
   const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
+  const [loggingWeight, setLoggingWeight] = useState(false);
 
   const trend = latestTrend(bwEntries);
   const macros = sumTodayMacros(nutritionEntries, today);
@@ -90,39 +155,44 @@ export default function Dashboard({ userId }: { userId: string }) {
       </DashCard>
 
       <View className="flex-row gap-3">
-        <DashCard title="Calories" badge={macros.hasAny ? undefined : 'No goal'} className="flex-1">
-          <Text className="text-white text-2xl font-bold">
-            {macros.calories} <Text className="text-sm text-gray-500 font-normal">kcal</Text>
-          </Text>
-        </DashCard>
-        <DashCard title="Macros" className="flex-1">
-          {macros.hasAny ? (
-            <Text className="text-xs text-gray-400">
-              {macros.protein_g}g P · {macros.carbs_g}g C · {macros.fat_g}g F
+        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/nutrition')}>
+          <DashCard title="Calories" badge={macros.hasAny ? undefined : 'No goal'}>
+            <Text className="text-white text-2xl font-bold">
+              {macros.calories} <Text className="text-sm text-gray-500 font-normal">kcal</Text>
             </Text>
-          ) : (
-            <Pressable
-              onPress={() => router.push('/(tabs)/nutrition')}
-              className="items-center gap-1.5 py-2"
-            >
-              <Ionicons name="restaurant-outline" size={20} color="#6B7280" />
-              <Text className="text-xs text-gray-500 text-center">Log food to see your macros</Text>
-            </Pressable>
-          )}
-        </DashCard>
+          </DashCard>
+        </Pressable>
+        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/nutrition')}>
+          <DashCard title="Macros">
+            {macros.hasAny ? (
+              <Text className="text-xs text-gray-400">
+                {macros.protein_g}g P · {macros.carbs_g}g C · {macros.fat_g}g F
+              </Text>
+            ) : (
+              <View className="items-center gap-1.5 py-2">
+                <Ionicons name="restaurant-outline" size={20} color="#6B7280" />
+                <Text className="text-xs text-gray-500 text-center">Log food to see your macros</Text>
+              </View>
+            )}
+          </DashCard>
+        </Pressable>
       </View>
 
       <View className="flex-row gap-3">
         <DashCard title="Bodyweight" badge={bwEntries.length > 0 ? undefined : 'No log'} className="flex-1">
-          {bwEntries.length > 0 ? (
+          {bwEntries.length > 0 && !loggingWeight ? (
             <Text className="text-white text-lg font-bold">
               {kgToLbs(bwEntries[0].weight_kg).toFixed(1)}{' '}
-              <Text className="text-xs text-gray-500 font-normal">lbs</Text>
+              <Text className="text-xs text-gray-500 font-normal">{WEIGHT_UNIT}</Text>
             </Text>
           ) : null}
-          <Button size="sm" variant="secondary" fullWidth onPress={() => router.push('/(tabs)/progress')}>
-            Log Weight
-          </Button>
+          {loggingWeight ? (
+            <QuickLogWeight logToday={logToday} onDone={() => setLoggingWeight(false)} />
+          ) : (
+            <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingWeight(true)}>
+              Log Weight
+            </Button>
+          )}
         </DashCard>
         <DashCard title="Steps" badge="Today" className="flex-1">
           <Button size="sm" variant="secondary" fullWidth onPress={() => comingSoon('Step tracking')}>

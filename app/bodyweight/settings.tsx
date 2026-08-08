@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useBodyweightSettings } from '../../src/hooks/useBodyweightSettings';
 import {
@@ -13,6 +12,7 @@ import {
 import Card from '../../src/components/ui/Card';
 import Switch from '../../src/components/ui/Switch';
 import Select from '../../src/components/ui/Select';
+import ScreenHeader from '../../src/components/ui/ScreenHeader';
 
 function SectionCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
@@ -50,12 +50,7 @@ export default function BodyweightSettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-row items-center gap-3 px-4 py-3 border-b border-border">
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-        </Pressable>
-        <Text className="text-lg font-bold text-white">Bodyweight Settings</Text>
-      </View>
+      <ScreenHeader title="Bodyweight Settings" />
 
       <ScrollView contentContainerClassName="p-4 gap-4">
         <SectionCard

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useMealTemplates } from '../../src/hooks/useMealTemplates';
@@ -12,6 +11,7 @@ import CustomFoodTab from '../../src/components/nutrition/CustomFoodTab';
 import SupplementsTab from '../../src/components/nutrition/SupplementsTab';
 import MealTemplatesTab from '../../src/components/nutrition/MealTemplatesTab';
 import Button from '../../src/components/ui/Button';
+import ScreenHeader from '../../src/components/ui/ScreenHeader';
 
 type MealTab = 'quick' | 'favorites' | 'custom' | 'supplements' | 'meals';
 
@@ -56,17 +56,15 @@ export default function AddMealModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-row items-center gap-3 px-4 py-3 border-b border-border">
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="close" size={22} color="#FFFFFF" />
-        </Pressable>
-        <Text className="text-lg font-bold text-white flex-1">
-          Meal{loggedItems.length > 0 ? ` (${loggedItems.length} logged)` : ''}
-        </Text>
-        <Pressable onPress={() => router.back()}>
-          <Text className="text-primary font-semibold">Done</Text>
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title={`Meal${loggedItems.length > 0 ? ` (${loggedItems.length})` : ''}`}
+        onClose={() => router.back()}
+        right={
+          <Pressable onPress={() => router.back()}>
+            <Text className="text-primary font-semibold text-sm">Done</Text>
+          </Pressable>
+        }
+      />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="border-b border-border">
         <View className="flex-row px-4">

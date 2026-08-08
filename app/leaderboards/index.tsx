@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useExerciseCatalog } from '../../src/hooks/useExerciseCatalog';
 import Card from '../../src/components/ui/Card';
+import ScreenHeader from '../../src/components/ui/ScreenHeader';
 
 export default function LeaderboardsIndexScreen() {
   useTraceUserContext(); // gate — thrown if not signed in, same as other pushed screens
@@ -12,12 +13,7 @@ export default function LeaderboardsIndexScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-row items-center gap-3 px-4 py-3 border-b border-border">
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-        </Pressable>
-        <Text className="text-lg font-bold text-white">Leaderboards</Text>
-      </View>
+      <ScreenHeader title="Leaderboards" />
 
       <View className="px-4 pt-4">
         <Text className="text-2xl font-bold text-white">Compete with Friends!</Text>

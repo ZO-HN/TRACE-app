@@ -1,5 +1,6 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useSessionSummaries } from '../hooks/useSessionSummaries';
 import { formatDuration, formatSessionDate } from '../lib/workout/summary';
 import Card from './ui/Card';
@@ -19,18 +20,26 @@ export default function SessionSummaries({ userId }: { userId: string }) {
   }
   if (sessions.length === 0) {
     return (
-      <View className="items-center py-6 gap-2">
+      <Pressable
+        onPress={() => router.push('/history')}
+        className="items-center py-6 gap-2"
+      >
         <Ionicons name="time-outline" size={26} color="#6B7280" />
         <Text className="text-sm text-gray-500">No completed sessions yet.</Text>
-      </View>
+      </Pressable>
     );
   }
 
   return (
     <View className="gap-2">
-      <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-2">
-        Recent sessions
-      </Text>
+      <View className="flex-row items-center justify-between px-2">
+        <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          Recent sessions
+        </Text>
+        <Pressable onPress={() => router.push('/history')}>
+          <Text className="text-xs text-primary font-semibold">View all</Text>
+        </Pressable>
+      </View>
       {sessions.map((s, i) => (
         <FadeInView key={s.id} delay={i * 40}>
           <Card className="flex-row items-center justify-between px-3 py-2.5">

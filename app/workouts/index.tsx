@@ -10,6 +10,7 @@ import { groupByFolder } from '../../src/lib/workout/folders';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
 import Select from '../../src/components/ui/Select';
+import ScreenHeader from '../../src/components/ui/ScreenHeader';
 
 const UNFOLDERED = 'none';
 
@@ -39,15 +40,14 @@ export default function WorkoutsIndexScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-row items-center gap-3 px-4 py-3 border-b border-border">
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-        </Pressable>
-        <Text className="text-lg font-bold text-white flex-1">My Workouts</Text>
-        <Pressable onPress={() => router.push('/workouts/folders/new')}>
-          <Ionicons name="folder-open-outline" size={20} color="#E5E7EB" />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="My Workouts"
+        right={
+          <Pressable onPress={() => router.push('/workouts/folders/new')}>
+            <Ionicons name="folder-open-outline" size={20} color="#E5E7EB" />
+          </Pressable>
+        }
+      />
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">

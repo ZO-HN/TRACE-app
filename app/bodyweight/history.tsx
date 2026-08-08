@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -8,6 +8,7 @@ import { useBodyweightSettings } from '../../src/hooks/useBodyweightSettings';
 import { groupByMonth } from '../../src/lib/bodyweight/groupByMonth';
 import { movingAverageAt, rateAt, tenDayLowAt } from '../../src/lib/bodyweight/movingAverage';
 import { kgToLbs } from '../../src/lib/units';
+import ScreenHeader from '../../src/components/ui/ScreenHeader';
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -28,15 +29,19 @@ export default function BodyweightHistoryScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="flex-row items-center gap-3 px-4 py-3 border-b border-border">
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-        </Pressable>
-        <Text className="text-lg font-bold text-white flex-1">Bodyweight</Text>
-        <Pressable onPress={() => router.push('/bodyweight/settings')}>
-          <Ionicons name="settings-outline" size={20} color="#E5E7EB" />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Bodyweight"
+        right={
+          <>
+            <Pressable onPress={() => Alert.alert('Coming soon', 'A chart view is not available yet.')}>
+              <Ionicons name="bar-chart-outline" size={20} color="#E5E7EB" />
+            </Pressable>
+            <Pressable onPress={() => router.push('/bodyweight/settings')}>
+              <Ionicons name="settings-outline" size={20} color="#E5E7EB" />
+            </Pressable>
+          </>
+        }
+      />
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
@@ -44,8 +49,8 @@ export default function BodyweightHistoryScreen() {
         </View>
       ) : entries.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6 gap-2">
-          <Ionicons name="calendar-outline" size={32} color="#6B7280" />
-          <Text className="text-lg font-bold text-white">Session History</Text>
+          <Ionicons name="body-outline" size={32} color="#6B7280" />
+          <Text className="text-lg font-bold text-white">No weigh-ins yet</Text>
           <Text className="text-sm text-gray-500 text-center">
             Log a weigh-in from the Progress tab to start tracking.
           </Text>

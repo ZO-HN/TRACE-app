@@ -1,20 +1,14 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useExerciseCatalog } from '../../src/hooks/useExerciseCatalog';
 import Card from '../../src/components/ui/Card';
-import ScreenHeader from '../../src/components/ui/ScreenHeader';
 
-export default function LeaderboardsIndexScreen() {
-  useTraceUserContext(); // gate — thrown if not signed in, same as other pushed screens
+export default function LeaderboardsTab() {
   const { rows, isLoaded } = useExerciseCatalog();
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScreenHeader title="Leaderboards" />
-
+    <View className="flex-1">
       <View className="px-4 pt-4">
         <Text className="text-2xl font-bold text-white">Compete with Friends!</Text>
         <Text className="text-sm text-gray-400 mt-1">
@@ -43,6 +37,6 @@ export default function LeaderboardsIndexScreen() {
           ))}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

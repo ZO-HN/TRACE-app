@@ -5,14 +5,16 @@ import TabBar, { type TabDef } from '../../src/components/ui/TabBar';
 import TopBar from '../../src/components/ui/TopBar';
 
 // "messages" is intentionally not one of these — it's reached via the top
-// bar's chat icon instead (TopBar.tsx), matching the reference's chat/notif
-// icons living up top rather than duplicated in the bottom nav.
-type Tab = 'index' | 'nutrition' | 'stats';
+// bar's chat icon instead (TopBar.tsx). "social" (Feed/Connected/Discover)
+// is a different, peer-following concept and does live here.
+type Tab = 'index' | 'nutrition' | 'training' | 'leaderboards' | 'social';
 
 const TABS: TabDef<Tab>[] = [
-  { key: 'index', label: 'Log', icon: 'barbell-outline', activeIcon: 'barbell' },
+  { key: 'index', label: 'Home', icon: 'home-outline', activeIcon: 'home' },
   { key: 'nutrition', label: 'Nutrition', icon: 'restaurant-outline', activeIcon: 'restaurant' },
-  { key: 'stats', label: 'Stats', icon: 'bar-chart-outline', activeIcon: 'bar-chart' },
+  { key: 'training', label: 'Training', icon: 'barbell-outline', activeIcon: 'barbell' },
+  { key: 'leaderboards', label: 'Leaderboards', icon: 'trophy-outline', activeIcon: 'trophy' },
+  { key: 'social', label: 'Social', icon: 'people-outline', activeIcon: 'people' },
 ];
 
 // The auth/loading gate and TraceUserProvider live in the root app/_layout.tsx
@@ -22,7 +24,7 @@ export default function TabsLayout() {
   const segments = useSegments() as unknown as string[];
   // segments looks like ["(tabs)"] for index, or ["(tabs)", "nutrition"] etc.
   // "session" (the active-workout screen) isn't its own tab — it's reached
-  // from the Log tab's Dashboard, so it should still highlight "Log". Any
+  // from the Home tab's Dashboard, so it should still highlight "Home". Any
   // other non-tab segment (e.g. "messages", reached via the top bar's chat
   // icon) just won't match a tab key, leaving the bar unhighlighted.
   const rawSegment = segments[1];

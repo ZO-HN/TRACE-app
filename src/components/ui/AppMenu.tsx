@@ -85,7 +85,7 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
               expanded={trainingOpen}
               onToggle={() => setTrainingOpen((v) => !v)}
             >
-              <MenuRow icon="folder-outline" label="My Workouts" indent onPress={() => go('/workouts')} />
+              <MenuRow icon="folder-outline" label="My Workouts" indent onPress={() => go('/(tabs)/training')} />
               <MenuRow icon="time-outline" label="History" indent onPress={() => go('/history')} />
             </ExpandableRow>
 
@@ -100,7 +100,7 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
               <MenuRow icon="scale-outline" label="Bodyweight" indent onPress={() => go('/bodyweight/history')} />
               <MenuRow icon="camera-outline" label="Photos" indent onPress={() => comingSoon('Progress photos')} />
               <MenuRow icon="resize-outline" label="Measurements" indent onPress={() => comingSoon('Measurements')} />
-              <MenuRow icon="trophy-outline" label="Leaderboards" badge="Pro" indent onPress={() => go('/leaderboards')} />
+              <MenuRow icon="trophy-outline" label="Leaderboards" indent onPress={() => go('/(tabs)/leaderboards')} />
               <MenuRow icon="chatbubble-outline" label="Messages" indent onPress={() => go('/(tabs)/messages')} />
             </ExpandableRow>
 

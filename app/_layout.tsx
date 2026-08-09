@@ -68,9 +68,7 @@ export default function RootLayout() {
           <Stack.Screen name="cardio/new" options={{ presentation: 'card' }} />
           <Stack.Screen name="cardio/[exerciseId]" options={{ presentation: 'card' }} />
           <Stack.Screen name="sleep/index" options={{ presentation: 'card' }} />
-          <Stack.Screen name="leaderboards/index" options={{ presentation: 'card' }} />
           <Stack.Screen name="leaderboards/[exerciseId]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="workouts/index" options={{ presentation: 'card' }} />
           <Stack.Screen name="workouts/folders/new" options={{ presentation: 'modal' }} />
           <Stack.Screen name="nutrition/add-meal" options={{ presentation: 'modal' }} />
         </Stack>

@@ -269,7 +269,7 @@ export default function GymLogger({
                 {pendingCount} queued
               </Badge>
             )}
-            <Pressable onPress={() => router.push('/workouts')}>
+            <Pressable onPress={() => router.push('/(tabs)/training')}>
               <Ionicons name="folder-outline" size={20} color="#9CA3AF" />
             </Pressable>
           </View>

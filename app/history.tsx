@@ -21,7 +21,7 @@ function GenerateWithAIButton() {
       className="rounded-xl p-[1.5px]"
     >
       <Pressable
-        onPress={() => router.push('/(tabs)/stats')}
+        onPress={() => router.push('/(tabs)/training')}
         className="h-14 rounded-[10px] bg-background items-center justify-center"
       >
         <Text className="text-white font-semibold">Generate with AI</Text>
@@ -64,7 +64,7 @@ export default function HistoryScreen() {
           </View>
 
           <View className="w-full gap-3 mt-2">
-            <Button fullWidth size="lg" onPress={() => router.push('/workouts')}>
+            <Button fullWidth size="lg" onPress={() => router.push('/(tabs)/training')}>
               Create Workout
             </Button>
             <View className="flex-row items-center gap-3">

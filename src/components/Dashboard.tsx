@@ -243,7 +243,7 @@ export default function Dashboard({ userId }: { userId: string }) {
         <Pressable
           className="flex-1"
           disabled={loggingWeight}
-          onPress={() => router.push('/(tabs)/progress')}
+          onPress={() => router.push('/bodyweight/history')}
         >
           <DashCard title="Bodyweight" badge={bwEntries.length > 0 ? undefined : 'No log'}>
             {bwEntries.length > 0 && !loggingWeight ? (

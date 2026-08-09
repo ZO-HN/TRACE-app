@@ -7,12 +7,11 @@ import TopBar from '../../src/components/ui/TopBar';
 // "messages" is intentionally not one of these — it's reached via the top
 // bar's chat icon instead (TopBar.tsx), matching the reference's chat/notif
 // icons living up top rather than duplicated in the bottom nav.
-type Tab = 'index' | 'nutrition' | 'progress' | 'stats';
+type Tab = 'index' | 'nutrition' | 'stats';
 
 const TABS: TabDef<Tab>[] = [
   { key: 'index', label: 'Log', icon: 'barbell-outline', activeIcon: 'barbell' },
   { key: 'nutrition', label: 'Nutrition', icon: 'restaurant-outline', activeIcon: 'restaurant' },
-  { key: 'progress', label: 'Progress', icon: 'body-outline', activeIcon: 'body' },
   { key: 'stats', label: 'Stats', icon: 'bar-chart-outline', activeIcon: 'bar-chart' },
 ];
 

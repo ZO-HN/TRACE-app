@@ -332,14 +332,43 @@ create index if not exists sleep_logs_user_date_idx
 
 ---
 
+## 007 — Social Discovery (Coach Roster RPC)
+
+Backs: the Social tab's Connected/Discover lists. **Verify first** that
+`public.profiles` actually has `coach_id` and `role` columns with those
+exact names (per AGENTS.md's description of `handle_new_user()`) before
+applying — the function body assumes them.
+
+```sql
+create or replace function public.list_coach_roster()
+returns table (id uuid, display_name text)
+language sql
+security definer
+set search_path = public
+as $$
+  select p.id, coalesce(p.first_name || ' ' || p.last_name, 'Athlete')
+  from public.profiles p
+  where p.coach_id = (select coach_id from public.profiles where id = auth.uid())
+    and p.id <> auth.uid()
+    and p.role = 'trainee'
+  order by p.first_name
+  limit 200;
+$$;
+
+grant execute on function public.list_coach_roster() to authenticated;
+```
+
+---
+
 ## After applying
 
 No client code changes are required — every hook (`useBodyweightSettings`,
 `useWorkoutFolders`, `useCustomFoods`/`useFavoriteFoods`/`useSupplements`/
-`useMealTemplates`, `useLeaderboard`/`useFollows`, `useCardioExercises`/
-`useCardioEntries`/`useCardioHistory`, `useSleepLogs`) already targets these
-exact table/column names and will start working live the moment each
-migration lands. Spot-check in the app:
+`useMealTemplates`, `useLeaderboard`/`useFollows`/`useFollowers`,
+`useCardioExercises`/`useCardioEntries`/`useCardioHistory`, `useSleepLogs`,
+`useCoachRoster`) already targets these exact table/column/function names
+and will start working live the moment each migration lands. Spot-check in
+the app:
 
 - Bodyweight Settings screen saves without falling back to session-only.
 - A workout can be moved into a folder from My Workouts.
@@ -348,3 +377,4 @@ migration lands. Spot-check in the app:
 - `/leaderboards/<exerciseId>` shows ranked entries instead of "not live yet".
 - `/cardio` shows real weekly totals after logging an entry.
 - `/sleep` shows a real last-night summary after using Log Sleep.
+- The Social tab's Discover list shows other trainees instead of "not live yet".

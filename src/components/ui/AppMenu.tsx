@@ -88,6 +88,7 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
               <MenuRow icon="folder-outline" label="My Workouts" indent onPress={() => go('/(tabs)/training')} />
               <MenuRow icon="time-outline" label="History" indent onPress={() => go('/history')} />
               <MenuRow icon="videocam-outline" label="Form Checks" indent onPress={() => go('/form-checks')} />
+              <MenuRow icon="clipboard-outline" label="Check-ins" indent onPress={() => go('/checkins')} />
             </ExpandableRow>
 
             <MenuRow icon="location-outline" label="Gyms" badge="Beta" onPress={() => comingSoon('Gyms')} />

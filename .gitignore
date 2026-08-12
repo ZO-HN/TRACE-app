@@ -40,7 +40,11 @@ yarn-error.*
 /ios
 /android
 
-# AI agents & skills
+# AI agents, tools, skills & configs
 .agents/
+.claude/
+CLAUDE.md
+AGENTS.md
 skills-lock.json
+
 

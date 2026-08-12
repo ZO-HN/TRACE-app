@@ -6,6 +6,8 @@ import { MotiView } from 'moti';
 import { usePersonalRecords } from '../hooks/usePersonalRecords';
 import { useMuscleAnalytics } from '../hooks/useMuscleAnalytics';
 import { useExerciseStats } from '../hooks/useExerciseStats';
+import { useRepRangePRs } from '../hooks/useRepRangePRs';
+import { useReadinessScore } from '../hooks/useReadinessScore';
 import { useWorkoutFolders } from '../hooks/useWorkoutFolders';
 import { useWorkoutTemplates } from '../hooks/useWorkoutTemplates';
 import { groupByFolder } from '../lib/workout/folders';
@@ -143,6 +145,24 @@ function MyWorkouts({ userId }: { userId: string }) {
   );
 }
 
+// Rep-range PR row — Tracked-parity: PRs grouped by 1-5/6-10/11+ reps
+// instead of one single best-e1RM record. See useRepRangePRs.
+function RepRangePRs({ userId, exerciseId }: { userId: string; exerciseId: string }) {
+  const { ranges, isLoading } = useRepRangePRs(userId, exerciseId);
+  if (isLoading || ranges.length === 0) return null;
+
+  return (
+    <View className="flex-row gap-2 px-3 pb-2">
+      {ranges.map((r) => (
+        <View key={r.range} className="flex-1 bg-background rounded-lg px-2 py-1.5">
+          <Text className="text-[10px] text-gray-500 uppercase tracking-wide">{r.range} reps</Text>
+          <Text className="text-xs font-semibold text-white">{kgToLbs(r.best_weight_kg)} lbs</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function ExerciseStatsDetail({ userId, exerciseId }: { userId: string; exerciseId: string }) {
   const { points, isLoading, error } = useExerciseStats(userId, exerciseId);
 
@@ -160,19 +180,22 @@ function ExerciseStatsDetail({ userId, exerciseId }: { userId: string; exerciseI
     <MotiView
       from={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
-      className="px-3 pb-3 gap-1.5"
+      className="pb-3 gap-1.5"
     >
-      {points
-        .slice()
-        .reverse()
-        .map((p) => (
-          <View key={p.session_date} className="flex-row items-center justify-between">
-            <Text className="text-xs text-gray-400">{p.session_date}</Text>
-            <Text className="text-xs text-gray-300">
-              top {kgToLbs(p.top_weight_kg)} lbs · {p.total_sets} sets
-            </Text>
-          </View>
-        ))}
+      <RepRangePRs userId={userId} exerciseId={exerciseId} />
+      <View className="px-3 gap-1.5">
+        {points
+          .slice()
+          .reverse()
+          .map((p) => (
+            <View key={p.session_date} className="flex-row items-center justify-between">
+              <Text className="text-xs text-gray-400">{p.session_date}</Text>
+              <Text className="text-xs text-gray-300">
+                top {kgToLbs(p.top_weight_kg)} lbs · {p.total_sets} sets
+              </Text>
+            </View>
+          ))}
+      </View>
     </MotiView>
   );
 }
@@ -295,11 +318,46 @@ function MuscleAnalytics({ userId }: { userId: string }) {
   );
 }
 
+// Crude readiness score (0-100) — see src/lib/readiness/score.ts for why
+// this is a self-reported-sleep + training-load proxy, not an HRV-based
+// wearable score. Framed explicitly as an estimate, not clinical-grade.
+function ReadinessCard({ userId }: { userId: string }) {
+  const { score, hasData, isLoading } = useReadinessScore(userId);
+
+  if (isLoading) {
+    return (
+      <View className="gap-2">
+        <SectionHeader icon="flash-outline" label="Readiness" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+      </View>
+    );
+  }
+
+  const tone = score >= 70 ? 'text-primary' : score >= 40 ? 'text-amber-400' : 'text-red-400';
+
+  return (
+    <View className="gap-2">
+      <SectionHeader icon="flash-outline" label="Readiness" />
+      <Card className="p-4 flex-row items-center justify-between">
+        <View className="flex-1">
+          <Text className={`text-3xl font-bold ${tone}`}>{score}</Text>
+          <Text className="text-xs text-gray-500 mt-1">
+            {hasData
+              ? 'Estimate from recent sleep + training load — not a wearable-grade score.'
+              : 'Log sleep and training to get a readiness estimate.'}
+          </Text>
+        </View>
+      </Card>
+    </View>
+  );
+}
+
 export default function TrainingScreen({ userId }: { userId: string }) {
   return (
     <View className="gap-8">
       <MyWorkouts userId={userId} />
       <WorkoutGenerator userId={userId} />
+      <ReadinessCard userId={userId} />
       <PersonalRecordsList userId={userId} />
       <MuscleAnalytics userId={userId} />
     </View>

@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNutritionLogs } from '../hooks/useNutritionLogs';
+import { useNutritionWeeklySummary } from '../hooks/useNutritionWeeklySummary';
 import { buildDateStrip, sumTodayMacros } from '../lib/dashboard/today';
 import { groupIntoMealSlots } from '../lib/nutrition/mealSlots';
+import { netCarbsG } from '../lib/nutrition/netCarbs';
 import MacroProgressBar from './nutrition/MacroProgressBar';
 import MealSlotCard from './nutrition/MealSlotCard';
 import Skeleton from './ui/Skeleton';
@@ -23,11 +25,17 @@ export default function NutritionLogger({ userId }: { userId: string }) {
   // meal-count field anywhere to persist it, so it resets on remount
   // (e.g. switching tabs and back).
   const [extraSlots, setExtraSlots] = useState(0);
+  const [showNetCarbs, setShowNetCarbs] = useState(false);
+  const { comparison: weekly } = useNutritionWeeklySummary(userId);
 
   const today = new Date();
   const todayKey = today.toISOString().slice(0, 10);
   const todaysEntries = entries.filter((e) => e.logged_at.slice(0, 10) === todayKey);
   const macros = sumTodayMacros(entries, today);
+  const netCarbsTotal = todaysEntries.reduce(
+    (sum, e) => sum + (netCarbsG(e.carbs_g, e.fiber_g ?? null) ?? 0),
+    0,
+  );
   const slotCount = DEFAULT_MEAL_SLOT_COUNT + extraSlots;
   const slots = groupIntoMealSlots(todaysEntries, slotCount);
   const dateStrip = buildDateStrip(today);
@@ -73,9 +81,44 @@ export default function NutritionLogger({ userId }: { userId: string }) {
       <View className="gap-3 px-1">
         <MacroProgressBar label="Energy" value={macros.calories} goal={NO_GOAL} unit="kcal" />
         <MacroProgressBar label="Protein" value={macros.protein_g} goal={NO_GOAL} unit="g" />
-        <MacroProgressBar label="Carbs" value={macros.carbs_g} goal={NO_GOAL} unit="g" />
+        <View className="gap-1">
+          <MacroProgressBar
+            label={showNetCarbs ? 'Net Carbs' : 'Carbs'}
+            value={showNetCarbs ? netCarbsTotal : macros.carbs_g}
+            goal={NO_GOAL}
+            unit="g"
+          />
+          <Pressable onPress={() => setShowNetCarbs((v) => !v)} className="self-end">
+            <Text className="text-[11px] text-gray-500">
+              Show {showNetCarbs ? 'total' : 'net'} carbs
+            </Text>
+          </Pressable>
+        </View>
         <MacroProgressBar label="Fat" value={macros.fat_g} goal={NO_GOAL} unit="g" />
       </View>
+
+      {weekly.thisWeek.daysLogged > 0 && (
+        <View className="bg-surface border border-border rounded-2xl px-4 py-3 gap-1">
+          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            This week vs. last week
+          </Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-white text-lg font-bold">
+              {weekly.thisWeek.avgCalories} <Text className="text-xs text-gray-500 font-normal">kcal/day avg</Text>
+            </Text>
+            {weekly.caloriesDeltaPct != null && (
+              <Text
+                className={`text-xs font-semibold ${
+                  weekly.caloriesDeltaPct > 0 ? 'text-amber-400' : 'text-primary'
+                }`}
+              >
+                {weekly.caloriesDeltaPct > 0 ? '+' : ''}
+                {weekly.caloriesDeltaPct}% vs last week
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
 
       <View className="gap-2">
         {slots.map((slotEntries, i) => (

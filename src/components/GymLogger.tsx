@@ -9,6 +9,8 @@ import { router } from 'expo-router';
 import { AnimatePresence, MotiView } from 'moti';
 import { useOutboxStore } from '../lib/outbox/outboxStore';
 import { isValidSetInput, toSetLogInsert } from '../lib/outbox/mapSetLog';
+import { suggestNextSet } from '../lib/workout/suggestNextSet';
+import { lbsToKg, kgToLbs } from '../lib/units';
 import { useExerciseCatalog } from '../hooks/useExerciseCatalog';
 import { lookupExerciseId } from '../lib/workout/catalog';
 import { createSessionDraft, sessionInsertFrom } from '../lib/workout/session';
@@ -34,6 +36,8 @@ type Exercise = {
   id: string;
   name: string;
   sets: SetData[];
+  /** Isometric hold (plank, wall-sit) — reps column becomes seconds. */
+  isIsometric?: boolean;
 };
 
 const calculateE1RM = (weightStr: string, repsStr: string): string => {
@@ -234,11 +238,13 @@ export default function GymLogger({
           exercise.id,
         setNumber: sIndex + 1,
         weightLbs: targetSet.weight,
-        reps: targetSet.reps,
+        reps: exercise.isIsometric ? '' : targetSet.reps,
         rpe: targetSet.rpe,
         formVideoKey: videoKeys[targetSet.id] ?? null,
         isWarmup: targetSet.isWarmup,
         isFailure: targetSet.isFailure,
+        setType: exercise.isIsometric ? ('duration' as const) : ('reps' as const),
+        durationSeconds: exercise.isIsometric ? targetSet.reps : null,
       };
       if (isValidSetInput(input)) {
         void ensureSessionQueued(
@@ -282,9 +288,29 @@ export default function GymLogger({
         {exercises.map((exercise, eIndex) => (
           <FadeInView key={exercise.id} delay={eIndex * 60}>
             <Card className="overflow-hidden">
-              <View className="bg-border/30 px-4 py-3 border-b border-border flex-row items-center gap-2">
-                <Ionicons name="barbell-outline" size={16} color="#4ADE80" />
-                <Text className="text-lg font-semibold text-white">{exercise.name}</Text>
+              <View className="bg-border/30 px-4 py-3 border-b border-border flex-row items-center justify-between gap-2">
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="barbell-outline" size={16} color="#4ADE80" />
+                  <Text className="text-lg font-semibold text-white">{exercise.name}</Text>
+                </View>
+                <Pressable
+                  onPress={() =>
+                    setExercises((current) =>
+                      current.map((e, i) => (i === eIndex ? { ...e, isIsometric: !e.isIsometric } : e)),
+                    )
+                  }
+                  className={`px-2 py-1 rounded-full border ${
+                    exercise.isIsometric ? 'bg-primary/15 border-primary/40' : 'border-border'
+                  }`}
+                >
+                  <Text
+                    className={`text-[11px] font-medium ${
+                      exercise.isIsometric ? 'text-primary' : 'text-gray-500'
+                    }`}
+                  >
+                    {exercise.isIsometric ? 'Hold (sec)' : 'Reps'}
+                  </Text>
+                </Pressable>
               </View>
 
               <View className="p-2 gap-2">
@@ -294,7 +320,7 @@ export default function GymLogger({
                     lbs
                   </Text>
                   <Text className="flex-1 text-xs font-semibold text-gray-500 uppercase text-center">
-                    Reps
+                    {exercise.isIsometric ? 'Sec' : 'Reps'}
                   </Text>
                   <Text className="w-14 text-xs font-semibold text-gray-500 uppercase text-center">
                     Done
@@ -303,11 +329,36 @@ export default function GymLogger({
 
                 {exercise.sets.map((set, sIndex) => {
                   const e1RM = calculateE1RM(set.weight, set.reps);
+                  // Auto-regulated hint: only for the first not-yet-completed
+                  // set right after a completed one in this same exercise —
+                  // an RPE-based lookback within this session, see
+                  // suggestNextSet.ts. No AI call, no persisted history read.
+                  const prevSet = sIndex > 0 ? exercise.sets[sIndex - 1] : null;
+                  const showSuggestion =
+                    !set.completed && !exercise.isIsometric && prevSet?.completed;
+                  const suggestion = showSuggestion
+                    ? suggestNextSet({
+                        weight_kg: lbsToKg(parseFloat(prevSet!.weight) || 0),
+                        reps: parseInt(prevSet!.reps, 10) || 0,
+                        rpe: prevSet!.rpe ? parseInt(prevSet!.rpe, 10) : null,
+                      })
+                    : null;
                   return (
                     <View
                       key={set.id}
                       className={`gap-2 p-2 rounded-xl ${set.completed ? 'bg-green-900/10' : ''}`}
                     >
+                      {suggestion && suggestion.reason !== 'no_history' && (
+                        <Text className="text-[11px] text-blue-400 pl-10">
+                          Suggested: {kgToLbs(suggestion.suggested_weight_kg)} lbs (
+                          {suggestion.reason === 'increase'
+                            ? 'last set felt easy'
+                            : suggestion.reason === 'decrease'
+                              ? 'last set was maximal'
+                              : 'hold steady'}
+                          )
+                        </Text>
+                      )}
                       <View className="flex-row items-center gap-2">
                         <Text className="w-8 text-gray-400 font-medium text-sm text-center">
                           {sIndex + 1}

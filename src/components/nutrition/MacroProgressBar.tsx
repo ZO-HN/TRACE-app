@@ -4,6 +4,7 @@ const BAR_COLOR: Record<string, string> = {
   Energy: '#FBBF24',
   Protein: '#3B82F6',
   Carbs: '#4ADE80',
+  'Net Carbs': '#4ADE80',
   Fat: '#F87171',
 };
 
@@ -13,7 +14,7 @@ export default function MacroProgressBar({
   goal,
   unit,
 }: {
-  label: 'Energy' | 'Protein' | 'Carbs' | 'Fat';
+  label: 'Energy' | 'Protein' | 'Carbs' | 'Net Carbs' | 'Fat';
   value: number;
   goal: number;
   unit: string;

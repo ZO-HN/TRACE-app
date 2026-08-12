@@ -22,6 +22,10 @@ export interface NutritionEntry {
   carbs_g: number | null;
   fat_g: number | null;
   calories: number | null;
+  /** Draft columns (008_tracked_parity_tier_a.sql) — undefined until that
+   * migration is applied; see the select-retry in refresh() below. */
+  fiber_g?: number | null;
+  sugar_g?: number | null;
 }
 
 export interface UseNutritionLogs {
@@ -38,12 +42,26 @@ export function useNutritionLogs(userId: string, limit = 20): UseNutritionLogs {
   const enqueueNutritionLog = useOutboxStore((s) => s.enqueueNutritionLog);
 
   const refresh = useCallback(async () => {
-    const { data, error: fetchError } = await supabase
+    // fiber_g/sugar_g are draft columns (008) — not live everywhere yet.
+    // Try with them, retry without on "column does not exist" (42703), same
+    // pattern as useMuscleAnalytics' is_warmup guard.
+    const UNDEFINED_COLUMN = '42703';
+    let data: unknown;
+    let fetchError: { message: string; code?: string } | null;
+    ({ data, error: fetchError } = await supabase
       .from('nutrition_logs')
-      .select('id, logged_at, method, description, protein_g, carbs_g, fat_g, calories')
+      .select('id, logged_at, method, description, protein_g, carbs_g, fat_g, calories, fiber_g, sugar_g')
       .eq('user_id', userId)
       .order('logged_at', { ascending: false })
-      .limit(limit);
+      .limit(limit));
+    if (fetchError?.code === UNDEFINED_COLUMN) {
+      ({ data, error: fetchError } = await supabase
+        .from('nutrition_logs')
+        .select('id, logged_at, method, description, protein_g, carbs_g, fat_g, calories')
+        .eq('user_id', userId)
+        .order('logged_at', { ascending: false })
+        .limit(limit));
+    }
 
     if (fetchError) setError(fetchError.message);
     else {

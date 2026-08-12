@@ -16,19 +16,27 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Expo Go dropped remote-notification support as of SDK 53 — any
+// expo-notifications call throws there (not just token registration), so
+// this whole module must no-op under Expo Go rather than crash the app on
+// every boot. Real dev-client/production builds are unaffected.
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (!isExpoGo) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 export function usePushNotifications(userId: string | null): void {
   useEffect(() => {
-    if (!userId || !Device.isDevice) return;
+    if (!userId || !Device.isDevice || isExpoGo) return;
 
     let cancelled = false;
 

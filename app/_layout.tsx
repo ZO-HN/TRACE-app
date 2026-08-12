@@ -8,6 +8,7 @@ import { useOutboxSync } from '../src/hooks/useOutboxSync';
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
 import { supabase } from '../src/lib/supabase';
 import AuthScreen from '../src/components/auth/AuthScreen';
+import ChooseCoachScreen from '../src/components/auth/ChooseCoachScreen';
 import { TraceUserProvider } from '../src/context/TraceUserContext';
 
 // Auth gate lives here, not in app/(tabs)/_layout.tsx: bodyweight/settings,
@@ -48,6 +49,13 @@ function Gate({ children }: { children: React.ReactNode }) {
         </Pressable>
       </SafeAreaView>
     );
+  }
+
+  // Blocks everything below this point — no tabs, no dashboard reads — until
+  // the trainee has a coach. Only applies to trainees; a coach account
+  // logging in here (shouldn't normally happen) isn't gated by this.
+  if (profile.role === 'trainee' && !profile.coach_id) {
+    return <ChooseCoachScreen onLinked={() => void traceUser.refetchProfile()} />;
   }
 
   return <TraceUserProvider value={traceUser}>{children}</TraceUserProvider>;

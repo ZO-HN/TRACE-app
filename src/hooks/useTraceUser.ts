@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
 // ==========================================
 // Every account in this app is a trainee (this client never creates coach
-// accounts, and the old "solo trainee" path no longer exists — signups
-// auto-enroll to the configured coach). No role/demo-profile branching here;
-// that complexity belongs to the coach dashboard's version of this hook.
+// accounts). Signups no longer auto-enroll under a default coach — a new
+// trainee starts with coach_id = NULL and is gated behind ChooseCoachScreen
+// (see app/_layout.tsx) until they pick a coach or enter a referral code.
+// No role/demo-profile branching here; that complexity belongs to the coach
+// dashboard's version of this hook.
 // ==========================================
 
 export type ExperienceTier = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
@@ -18,6 +20,7 @@ export interface TraceProfile {
   email: string;
   role: 'coach' | 'trainee';
   coach_id: string | null;
+  coach_code: string | null;
   first_name: string;
   last_name: string;
   dob: string | null;
@@ -35,9 +38,12 @@ export interface UseTraceUserReturn {
   profile: TraceProfile | null;
   isLoading: boolean;
   error: Error | null;
-  /** True once profile.coach_id is set — platform_settings.default_coach_id
-   * was configured before this account signed up. */
+  /** True once profile.coach_id is set. New signups start unenrolled —
+   * see ChooseCoachScreen, which is what sets it. */
   isEnrolled: boolean;
+  /** Re-fetch the profile row — call after claim_coach_by_id/claim_coach_by_code
+   * succeeds so the gate re-evaluates without a full app reload. */
+  refetchProfile: () => Promise<void>;
 }
 
 export function useTraceUser(): UseTraceUserReturn {
@@ -45,6 +51,7 @@ export function useTraceUser(): UseTraceUserReturn {
   const [profile, setProfile] = useState<TraceProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const userRef = useRef<User | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -84,6 +91,7 @@ export function useTraceUser(): UseTraceUserReturn {
       }
 
       const currentUser = session?.user ?? null;
+      userRef.current = currentUser;
       if (isMounted) setUser(currentUser);
 
       if (!currentUser) {
@@ -104,6 +112,7 @@ export function useTraceUser(): UseTraceUserReturn {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
       const currentUser = session?.user ?? null;
+      userRef.current = currentUser;
       setUser(currentUser);
       if (!currentUser) {
         setProfile(null);
@@ -119,11 +128,27 @@ export function useTraceUser(): UseTraceUserReturn {
     };
   }, []);
 
+  const refetchProfile = useCallback(async () => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+    const { data, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .single();
+    if (profileError) {
+      setError(profileError instanceof Error ? profileError : new Error('Failed to refetch profile'));
+      return;
+    }
+    setProfile(data as TraceProfile);
+  }, []);
+
   return {
     user,
     profile,
     isLoading,
     error,
     isEnrolled: profile?.coach_id != null,
+    refetchProfile,
   };
 }

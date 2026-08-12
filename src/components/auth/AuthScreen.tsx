@@ -33,8 +33,9 @@ function InputField({
 }
 
 // Every account created here is a trainee — this app never sends a `role`
-// in signup metadata, so handle_new_user() defaults it to 'trainee' and
-// auto-assigns coach_id from platform_settings.default_coach_id.
+// in signup metadata, so handle_new_user() defaults it to 'trainee'.
+// coach_id starts NULL; ChooseCoachScreen (in app/_layout.tsx's Gate) is
+// what sets it, right after this screen hands off.
 export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');

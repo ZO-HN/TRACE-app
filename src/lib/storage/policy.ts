@@ -24,6 +24,10 @@ export const MEDIA_POLICY: Record<MediaKind, KindPolicy> = {
     contentTypes: ['image/jpeg', 'image/png', 'image/webp'],
     maxBytes: 10 * MB,
   },
+  'progress-photo': {
+    contentTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/heic'],
+    maxBytes: 10 * MB,
+  },
   file: {
     contentTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
     maxBytes: 25 * MB,

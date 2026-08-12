@@ -371,7 +371,7 @@ export default function Dashboard({ userId }: { userId: string }) {
 
       <DashCard title="Physique">
         <Pressable
-          onPress={() => comingSoon('Progress photos')}
+          onPress={() => router.push('/progress-photos')}
           className="w-16 h-16 rounded-2xl bg-background border border-border items-center justify-center self-center"
         >
           <Ionicons name="camera-outline" size={22} color="#6B7280" />

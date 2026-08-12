@@ -100,7 +100,7 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
               onToggle={() => setPhysiqueOpen((v) => !v)}
             >
               <MenuRow icon="scale-outline" label="Bodyweight" indent onPress={() => go('/bodyweight/history')} />
-              <MenuRow icon="camera-outline" label="Photos" indent onPress={() => comingSoon('Progress photos')} />
+              <MenuRow icon="camera-outline" label="Photos" indent onPress={() => go('/progress-photos')} />
               <MenuRow icon="resize-outline" label="Measurements" indent onPress={() => comingSoon('Measurements')} />
               <MenuRow icon="trophy-outline" label="Leaderboards" indent onPress={() => go('/(tabs)/leaderboards')} />
               <MenuRow icon="chatbubble-outline" label="Messages" indent onPress={() => go('/(tabs)/messages')} />

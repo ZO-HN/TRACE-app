@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useBodyweightSettings } from '../../src/hooks/useBodyweightSettings';
 import {
@@ -109,10 +110,13 @@ export default function BodyweightSettingsScreen() {
         </SectionCard>
 
         <SectionCard title="Goal" description="Bodyweight goals live in roadmaps. Create one to start tracking.">
-          <View className="flex-row items-center justify-between border border-border rounded-xl px-4 py-3 opacity-50">
-            <Text className="text-gray-500 font-medium">Go to roadmaps</Text>
+          <Pressable
+            onPress={() => router.push('/bodyweight/roadmap')}
+            className="flex-row items-center justify-between border border-border rounded-xl px-4 py-3"
+          >
+            <Text className="text-white font-medium">Go to roadmaps</Text>
             <Ionicons name="chevron-forward" size={18} color="#6B7280" />
-          </View>
+          </Pressable>
         </SectionCard>
       </ScrollView>
     </SafeAreaView>

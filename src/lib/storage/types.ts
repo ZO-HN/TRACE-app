@@ -1,6 +1,14 @@
 // Types for the direct-to-R2 media upload path. See docs/adr/0001-media-storage.md.
 
-export type MediaKind = 'form-video' | 'meal-photo' | 'coach-image' | 'file';
+// 'progress-photo' is a client-side addition for the Tracked-parity
+// progress-photos feature (docs/feature-research/tracked-app-parity-gap.md
+// Tier B) — per AGENTS.md, MEDIA_POLICY here must stay in sync with the
+// r2-presign edge function's server-side copy in the dashboard repo. That
+// function does NOT yet have a 'progress-photo' case, so uploads of this
+// kind will fail server-side until the dashboard repo adds it — same
+// "client contract defined, server side pending" pattern as several other
+// cross-repo items in this codebase.
+export type MediaKind = 'form-video' | 'meal-photo' | 'coach-image' | 'progress-photo' | 'file';
 
 /** What the client asks the edge function to presign. */
 export interface PresignRequest {

@@ -6,6 +6,7 @@ import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
 import { useBodyweightLogs } from '../hooks/useBodyweightLogs';
 import { useNutritionLogs } from '../hooks/useNutritionLogs';
 import { useSleepLogs } from '../hooks/useSleepLogs';
+import { useWaterLogs } from '../hooks/useWaterLogs';
 import { buildDateStrip } from '../lib/dashboard/today';
 import { sumTodayMacros } from '../lib/dashboard/today';
 import { latestTrend } from '../lib/bodyweight/trend';
@@ -165,6 +166,35 @@ function QuickLogSteps({ onSave, onDone }: { onSave: (steps: number) => void; on
   );
 }
 
+const WATER_SERVING_ML = 250; // one "cup" — Tracked's countable serving unit
+
+function QuickLogWater({
+  todayMl,
+  onAdd,
+  onDone,
+}: {
+  todayMl: number | null;
+  onAdd: (amountMl: number) => void;
+  onDone: () => void;
+}) {
+  const addServing = () => onAdd((todayMl ?? 0) + WATER_SERVING_ML);
+
+  return (
+    <View className="gap-2">
+      <Pressable
+        onPress={addServing}
+        className="h-9 rounded-lg bg-background border border-border items-center justify-center flex-row gap-1.5"
+      >
+        <Ionicons name="water-outline" size={14} color="#4ADE80" />
+        <Text className="text-white text-xs font-medium">+{WATER_SERVING_ML} mL cup</Text>
+      </Pressable>
+      <Pressable onPress={onDone} className="h-8 items-center justify-center">
+        <Text className="text-gray-500 text-xs font-medium">Done</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function Dashboard({ userId }: { userId: string }) {
   const today = new Date();
   const dateStrip = buildDateStrip(today);
@@ -172,9 +202,11 @@ export default function Dashboard({ userId }: { userId: string }) {
   const { entries: bwEntries, logToday } = useBodyweightLogs(userId, 14);
   const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
   const { logs: sleepLogs, logSleep } = useSleepLogs(userId, daysAgoKey(7));
+  const { todayMl: waterMl, logToday: logWater } = useWaterLogs(userId);
   const [loggingWeight, setLoggingWeight] = useState(false);
   const [loggingSteps, setLoggingSteps] = useState(false);
   const [todaySteps, setTodaySteps] = useState<number | null>(null);
+  const [loggingWater, setLoggingWater] = useState(false);
   const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
   const lastSleep = lastNight(sleepLogs);
 
@@ -300,6 +332,27 @@ export default function Dashboard({ userId }: { userId: string }) {
             </Button>
           </DashCard>
         </Pressable>
+      </View>
+
+      <View className="flex-row gap-3">
+        <DashCard title="Water" badge={waterMl == null ? 'No log' : 'Today'} className="flex-1">
+          {waterMl != null && !loggingWater ? (
+            <Text className="text-white text-lg font-bold">
+              {(waterMl / 1000).toFixed(2)} <Text className="text-xs text-gray-500 font-normal">L</Text>
+            </Text>
+          ) : null}
+          {loggingWater ? (
+            <QuickLogWater
+              todayMl={waterMl}
+              onAdd={(ml) => void logWater(ml)}
+              onDone={() => setLoggingWater(false)}
+            />
+          ) : (
+            <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingWater(true)}>
+              Log Water
+            </Button>
+          )}
+        </DashCard>
       </View>
 
       <LogSleepSheet

@@ -26,6 +26,8 @@ type SetData = {
   reps: string;
   rpe: string;
   completed: boolean;
+  isWarmup?: boolean;
+  isFailure?: boolean;
 };
 
 type Exercise = {
@@ -235,6 +237,8 @@ export default function GymLogger({
         reps: targetSet.reps,
         rpe: targetSet.rpe,
         formVideoKey: videoKeys[targetSet.id] ?? null,
+        isWarmup: targetSet.isWarmup,
+        isFailure: targetSet.isFailure,
       };
       if (isValidSetInput(input)) {
         void ensureSessionQueued(
@@ -362,6 +366,42 @@ export default function GymLogger({
                             </Text>
                           </Pressable>
                         ))}
+                      </View>
+
+                      {/* Warm-up / failure tags — Tracked-parity Tier A. Toggleable
+                          before the set is marked done; queued on completion via
+                          isWarmup/isFailure on the outbox payload. */}
+                      <View className="flex-row gap-1.5 pl-10">
+                        <Pressable
+                          disabled={set.completed}
+                          onPress={() => updateSet(eIndex, sIndex, 'isWarmup', !set.isWarmup)}
+                          className={`px-2 py-1 rounded-full border ${
+                            set.isWarmup ? 'bg-amber-500/15 border-amber-500/40' : 'border-border'
+                          }`}
+                        >
+                          <Text
+                            className={`text-[11px] font-medium ${
+                              set.isWarmup ? 'text-amber-400' : 'text-gray-500'
+                            }`}
+                          >
+                            Warm-up
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={set.completed}
+                          onPress={() => updateSet(eIndex, sIndex, 'isFailure', !set.isFailure)}
+                          className={`px-2 py-1 rounded-full border ${
+                            set.isFailure ? 'bg-red-500/15 border-red-500/40' : 'border-border'
+                          }`}
+                        >
+                          <Text
+                            className={`text-[11px] font-medium ${
+                              set.isFailure ? 'text-red-400' : 'text-gray-500'
+                            }`}
+                          >
+                            To failure
+                          </Text>
+                        </Pressable>
                       </View>
 
                       <View className="flex-row items-center justify-between pl-10">

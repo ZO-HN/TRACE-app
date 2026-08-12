@@ -76,4 +76,48 @@ describe('toSetLogInsert', () => {
     expect(toSetLogInsert({ ...base, rpe: '' }).rpe).toBeNull();
     expect(toSetLogInsert({ ...base, rpe: null }).rpe).toBeNull();
   });
+
+  it('omits Tier A columns entirely for a plain set (unmigrated-backend safe)', () => {
+    const payload = toSetLogInsert(base);
+    expect('is_warmup' in payload).toBe(false);
+    expect('is_failure' in payload).toBe(false);
+    expect('set_type' in payload).toBe(false);
+    expect('duration_seconds' in payload).toBe(false);
+  });
+
+  it('includes is_warmup only when true', () => {
+    expect(toSetLogInsert({ ...base, isWarmup: true }).is_warmup).toBe(true);
+    expect('is_warmup' in toSetLogInsert({ ...base, isWarmup: false })).toBe(false);
+  });
+
+  it('includes is_failure only when true', () => {
+    expect(toSetLogInsert({ ...base, isFailure: true }).is_failure).toBe(true);
+    expect('is_failure' in toSetLogInsert({ ...base, isFailure: false })).toBe(false);
+  });
+
+  it('maps a duration (isometric) set, ignoring reps', () => {
+    const payload = toSetLogInsert({
+      ...base,
+      reps: '',
+      setType: 'duration',
+      durationSeconds: '45',
+    });
+    expect(payload.set_type).toBe('duration');
+    expect(payload.duration_seconds).toBe(45);
+    expect(payload.reps).toBe(0);
+  });
+});
+
+describe('isValidSetInput — duration sets', () => {
+  it('requires a positive duration instead of reps', () => {
+    expect(
+      isValidSetInput({ ...base, reps: '', setType: 'duration', durationSeconds: '30' }),
+    ).toBe(true);
+    expect(
+      isValidSetInput({ ...base, reps: '', setType: 'duration', durationSeconds: '' }),
+    ).toBe(false);
+    expect(
+      isValidSetInput({ ...base, reps: '', setType: 'duration', durationSeconds: '0' }),
+    ).toBe(false);
+  });
 });

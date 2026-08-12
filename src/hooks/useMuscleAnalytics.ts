@@ -29,6 +29,7 @@ export interface UseMuscleAnalytics {
 interface SetLogRow {
   weight_kg: number | null;
   reps: number | null;
+  is_warmup?: boolean | null;
   exercise: {
     target_muscle_group: string | null;
     exercise_muscles: { role: MuscleRole; muscle_group: { name: string } | null }[] | null;
@@ -49,6 +50,7 @@ function aggregate(rows: SetLogRow[]): MuscleAnalyticsRow[] {
   };
 
   for (const row of rows) {
+    if (row.is_warmup) continue; // warm-up sets don't count toward training volume
     const volume = (row.weight_kg ?? 0) * (row.reps ?? 0);
     const muscles = row.exercise?.exercise_muscles?.filter((m) => m.muscle_group) ?? [];
     if (muscles.length > 0) {
@@ -101,12 +103,26 @@ export function useMuscleAnalytics(userId: string, days = 30): UseMuscleAnalytic
         return;
       }
 
-      const { data, error: setLogsError } = await supabase
+      // is_warmup is a draft column (008_tracked_parity_tier_a.sql) — not
+      // live yet everywhere. Try selecting it; on "column does not exist"
+      // (42703), retry without it so the screen keeps working pre-migration.
+      const UNDEFINED_COLUMN = '42703';
+      let data: unknown;
+      let setLogsError: { message: string; code?: string } | null;
+      ({ data, error: setLogsError } = await supabase
         .from('set_logs')
         .select(
-          'weight_kg, reps, exercise:exercises(target_muscle_group, exercise_muscles(role, muscle_group:muscle_groups(name)))',
+          'weight_kg, reps, is_warmup, exercise:exercises(target_muscle_group, exercise_muscles(role, muscle_group:muscle_groups(name)))',
         )
-        .in('session_id', sessionIds);
+        .in('session_id', sessionIds));
+      if (setLogsError?.code === UNDEFINED_COLUMN) {
+        ({ data, error: setLogsError } = await supabase
+          .from('set_logs')
+          .select(
+            'weight_kg, reps, exercise:exercises(target_muscle_group, exercise_muscles(role, muscle_group:muscle_groups(name)))',
+          )
+          .in('session_id', sessionIds));
+      }
       if (cancelled) return;
       if (setLogsError) setError(setLogsError.message);
       else {

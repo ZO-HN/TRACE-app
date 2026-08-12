@@ -22,6 +22,15 @@ export interface SetLogInsert {
   rpe?: number | null;
   is_completed?: boolean;
   form_video_s3_key?: string | null;
+  /** True for warm-up sets — excluded from muscle-volume analytics.
+   * Maps to docs/migrations-drafts/008_tracked_parity_tier_a.sql. */
+  is_warmup?: boolean;
+  /** True when the set was taken to failure short of the planned reps. */
+  is_failure?: boolean;
+  /** 'duration' for isometric holds (planks, wall-sits) — reps is unused,
+   * duration_seconds carries the hold time instead. */
+  set_type?: 'reps' | 'duration';
+  duration_seconds?: number | null;
 }
 
 /**

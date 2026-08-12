@@ -14,6 +14,12 @@ export interface NutritionLogInsert {
   fat_g?: number | null;
   calories?: number | null;
   photo_s3_key?: string | null;
+  /** Added in docs/migrations-drafts/008_tracked_parity_tier_a.sql — not
+   * live everywhere yet. Only send these keys when the caller actually set
+   * them (see netCarbs.ts), same "no unknown column" caution as set_logs'
+   * Tier A fields in mapSetLog.ts. */
+  fiber_g?: number | null;
+  sugar_g?: number | null;
 }
 
 // The following four map to draft tables — see

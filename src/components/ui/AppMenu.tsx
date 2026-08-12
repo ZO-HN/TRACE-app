@@ -91,6 +91,7 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
               <MenuRow icon="clipboard-outline" label="Check-ins" indent onPress={() => go('/checkins')} />
             </ExpandableRow>
 
+            <MenuRow icon="sparkles-outline" label="AI Copilot" onPress={() => go('/ai-copilot')} />
             <MenuRow icon="location-outline" label="Gyms" badge="Beta" onPress={() => comingSoon('Gyms')} />
 
             <ExpandableRow

@@ -19,6 +19,7 @@ import Button from './ui/Button';
 import Select from './ui/Select';
 import FadeInView from './ui/FadeInView';
 import Skeleton from './ui/Skeleton';
+import MuscleBodyMap from './analytics/MuscleBodyMap';
 
 const UNFOLDERED = 'none';
 
@@ -266,6 +267,7 @@ function PersonalRecordsList({ userId }: { userId: string }) {
 
 function MuscleAnalytics({ userId }: { userId: string }) {
   const { rows, isLoading, error } = useMuscleAnalytics(userId);
+  const [view, setView] = useState<'list' | 'body'>('body');
 
   if (isLoading) {
     return (
@@ -291,28 +293,47 @@ function MuscleAnalytics({ userId }: { userId: string }) {
 
   return (
     <View className="gap-2">
-      <SectionHeader icon="pulse-outline" label="Muscle volume — last 30 days" />
+      <View className="flex-row items-center justify-between">
+        <SectionHeader icon="pulse-outline" label="Muscle volume — last 30 days" />
+        <View className="flex-row bg-background border border-border rounded-full p-0.5">
+          {(['body', 'list'] as const).map((v) => (
+            <Pressable
+              key={v}
+              onPress={() => setView(v)}
+              className={`px-3 py-1 rounded-full ${view === v ? 'bg-primary' : ''}`}
+            >
+              <Text className={`text-[10px] font-bold uppercase ${view === v ? 'text-black' : 'text-gray-400'}`}>
+                {v}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
       <Card className="p-4 gap-3">
-        {bars.map((b, i) => (
-          <View key={b.target_muscle_group} className="gap-1">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-xs font-medium text-gray-300">
-                {b.target_muscle_group}
-              </Text>
-              <Text className="text-xs text-gray-500">
-                {Math.round(kgToLbs(b.total_volume_kg)).toLocaleString()} lbs
-              </Text>
+        {view === 'body' ? (
+          <MuscleBodyMap rows={rows} />
+        ) : (
+          bars.map((b, i) => (
+            <View key={b.target_muscle_group} className="gap-1">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xs font-medium text-gray-300">
+                  {b.target_muscle_group}
+                </Text>
+                <Text className="text-xs text-gray-500">
+                  {Math.round(kgToLbs(b.total_volume_kg)).toLocaleString()} lbs
+                </Text>
+              </View>
+              <View className="h-2 bg-background rounded-full overflow-hidden">
+                <MotiView
+                  className="h-2 bg-primary rounded-full"
+                  from={{ width: '0%' }}
+                  animate={{ width: `${b.widthPct}%` }}
+                  transition={{ type: 'timing', duration: 500, delay: i * 60 }}
+                />
+              </View>
             </View>
-            <View className="h-2 bg-background rounded-full overflow-hidden">
-              <MotiView
-                className="h-2 bg-primary rounded-full"
-                from={{ width: '0%' }}
-                animate={{ width: `${b.widthPct}%` }}
-                transition={{ type: 'timing', duration: 500, delay: i * 60 }}
-              />
-            </View>
-          </View>
-        ))}
+          ))
+        )}
       </Card>
     </View>
   );

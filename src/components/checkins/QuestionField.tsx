@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 import type { RNFile } from '../../lib/storage/uploadMedia';
 import { parseChoiceOptions, type CheckInAnswerValue, type CheckInQuestion } from '../../lib/checkins/types';

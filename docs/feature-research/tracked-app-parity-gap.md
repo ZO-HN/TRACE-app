@@ -145,86 +145,73 @@ know it's not accidentally missing:
 
 ### Tier C — needs a new native capability, external API, or recurring cost
 
-These overlap heavily with items already in `competitor-gap-analysis.md`;
-listed here only where Tracked's implementation adds a new detail worth
-noting.
+**2026-08-12 decision: barcode scanning and "Train Together" real-time
+coach mode are cut from scope — not being built.** Removed below rather
+than left as dead TODOs. AI photo meal logging and voice logging were
+re-scoped around a BYO-key AI copilot (see status notes) instead of a
+TRACE-hosted/paid integration, which unblocked them. Wearable sync stays
+on the list — the repo owner will integrate it later.
 
-15. **Barcode scanning (50,000+ verified foods)** — same feature/risk as
-    competitor-gap doc's "Barcode Scanner" (Effort M–L, needs a licensed
-    food database — Open Food Facts free tier vs. a paid API like
-    Nutritionix). Tracked's own reviews note their food database is
-    *smaller* than dedicated apps like Cronometer — worth knowing this is a
-    real, accepted tradeoff in the category, not a bar TRACE needs to clear
-    perfectly.
-16. **AI photo meal logging** — same as competitor-gap doc (Effort L–XL,
-    per-request inference cost, conflicts with offline-first outbox design
-    for that one write path).
-17. **Voice logging (hands-free, mid-set exercise swap via voice)** — same
-    class as competitor-gap doc's Voice Logging entry (Effort M), but
-    Tracked's version is deeper: full conversational AI ("Roscoe") doing
-    workout creation and session review via natural language, not just
-    speech-to-text into the existing quick-add parser. The **STT-only**
-    subset (speak a set/food entry, transcribe, feed existing parsers) is
-    the M-effort version already scoped; the **conversational-AI-coach**
-    subset (Roscoe-equivalent) is a materially larger, ongoing-cost
-    undertaking — **Effort: XL**, and raises the same "undercuts the human
-    coach relationship" tension flagged for Fitbod's AI generator in the
-    other doc. Needs an explicit product decision before any build.
-18. **Apple Health / Google Health Connect step & sleep sync** — same as
-    competitor-gap doc's "Wearable Device Integration" (Effort L–XL per
-    provider, native module work beyond Expo managed workflow). Tracked
-    also merges Fitbit data specifically for steps/sleep — a second
-    provider on top of platform health APIs, each its own OAuth flow.
-19. **"Train Together" real-time coach-athlete session mode** — a live
-    synchronized session where the coach watches/annotates in real time.
-    No TRACE equivalent at all today, and it's genuinely cross-repo (coach
-    side lives in the dashboard repo per `AGENTS.md`). This would need
-    real-time infra (Supabase Realtime channels are already likely in use
-    for chat — check `useDirectChat.ts`'s transport before assuming a new
-    service is needed) plus UI on both repos. **Effort: L–XL,
-    cross-repo, needs the dashboard repo's coach-side counterpart before
-    this repo's half is even useful.**
+15. ~~Barcode scanning~~ — **cut from scope.**
+16. **AI photo meal logging** — **shipped**, re-scoped: instead of a
+    TRACE-hosted/paid vision API, this uses the user's own AI copilot key
+    (see below) — `src/lib/ai/mealPhotoScan.ts`, wired into
+    `QuickAddTab`'s "Scan photo with AI" button. No per-request cost to
+    this app, no conflict with the offline-first outbox (the scan is a
+    one-off online action that fills the existing text field; the actual
+    log write still goes through the outbox as normal).
+17. **Voice logging** — **partially shipped.** The BYO-key AI copilot
+    (`src/lib/ai/client.ts`, `app/ai-copilot/*`) resolved the product-
+    tension question below: since the user brings and pays for their own
+    key, it isn't a TRACE-hosted "Roscoe" competing with the coach — it's
+    an opt-in personal tool, framed in its own system prompt as
+    explicitly deferring to the human coach on programming. The
+    **conversational chat** half is shipped (`app/ai-copilot/index.tsx`).
+    The **STT-only voice-to-set/food entry** half (speak instead of type,
+    mid-workout) is not yet built — most OpenAI-compatible endpoints also
+    expose an audio-transcription route, so this is buildable the same
+    way meal-photo scanning was; just hasn't been done yet.
+18. **Apple Health / Google Health Connect (+ Fitbit) step & sleep sync**
+    — **deferred, not cut.** Repo owner will integrate this later. Still
+    Effort: L–XL per provider (native module work beyond Expo managed
+    workflow, each provider its own OAuth/data-freshness problem) — see
+    `competitor-gap-analysis.md`'s Recovery/Wearables section for the
+    full breakdown. No client-side work started; picking up here means
+    starting with a provider choice (Apple Health + Health Connect first
+    is the natural pair, Fitbit as a later third).
+19. ~~"Train Together" real-time coach-athlete session mode~~ — **cut
+    from scope.**
 
 ---
 
-## 3. Decisions that need you, before any Tier C work starts
+## 3. Decisions that need you
 
-Per this repo's scope (no coach-facing UI, native-only, offline-first via
-the outbox, R2-only media, `AGENTS.md`'s hard git-local-only rule), these
-aren't code decisions — they're product/business/infra calls:
-
-1. **Food database provider** (#15/#16 upstream dependency) — Open Food
-   Facts (free, smaller/community-maintained) vs. a paid API like
-   Nutritionix (recurring cost, better coverage). Blocks barcode scanning
-   and by extension AI photo meal logging.
-2. **Whether an AI coach chat ("Roscoe"-equivalent) is in scope at all**
-   (#17's conversational-AI subset) — this is the one item on this whole
-   list with a real chance of feeling like it competes with the human coach
-   TRACE is built around. Needs an explicit yes/no before any design work,
-   not just an effort estimate.
-3. **Wearable integration scope** (#18) — Apple Health + Health Connect
-   alone (2 providers, both native-module work) vs. also Fitbit (3rd OAuth
-   integration). Each is independently gate-able; recommend deciding
-   provider-by-provider rather than as one bundled feature.
-4. **"Train Together" real-time mode** (#19) — genuinely blocked on
-   dashboard-repo work existing first; not actionable from this repo alone
-   until that's scoped on the other side.
-5. **Check-in templates** (#12) — same cross-repo split as above: template
-   *authoring* is dashboard-repo scope, only the trainee-side *response*
-   flow belongs here. Needs the dashboard repo's schema/RPC shape defined
-   first (this repo can't invent the table shape unilaterally, same caution
-   `AGENTS.md` gives for anything touching tables the dashboard repo owns).
+1. ~~Food database provider~~ — moot, barcode scanning cut from scope.
+2. ~~Whether an AI coach chat is in scope~~ — **resolved**: yes, but as a
+   BYO-key personal copilot (user supplies their own API key/endpoint,
+   stored on-device only), not a TRACE-hosted or TRACE-paid assistant.
+   Shipped.
+3. **Wearable integration scope** (#18) — still open, but not blocking:
+   the repo owner is picking this up later. When that starts: Apple
+   Health + Health Connect alone (2 providers) vs. also Fitbit (3rd OAuth
+   integration) — recommend deciding provider-by-provider rather than as
+   one bundled feature.
+4. ~~"Train Together" real-time mode~~ — moot, cut from scope.
+5. ~~Check-in templates~~ — moot, already shipped (see §1).
 
 ---
 
-## 4. Suggested next-session order (not prioritized by importance — by
-what's safely startable without a cross-repo or external-vendor blocker)
+## 4. Status summary (as of 2026-08-12)
 
-Tier A items (#1–9) and Tier B items #10, #13 need nothing from outside this
-repo and no new paid dependency — they're the safe next batch. Items
-touching **live tables** (#2 warm-up flag, #6 net-carbs/sugar fields, #8
-set-type) should get the same "verify column shape first" treatment the
-pending migrations doc already gives migrations 002/004/007 — draft the
-migration, don't apply it blind.
-
-Everything in §3 stays blocked until you've made the calls listed there.
+- **Tier A (all 9 items): shipped** — data layer (draft migration 008)
+  and UI wired into `GymLogger`, `TrainingScreen`, `Dashboard`,
+  `NutritionLogger`.
+- **Tier B: shipped**, except the gym directory (never recommended —
+  low benefit for a single-coach model, not built). Draft migration 009
+  covers progress photos, roadmap goals, and notification quiet hours.
+  Check-in templates were already live from a prior session.
+- **Tier C: barcode scanning and Train Together cut from scope.** AI
+  photo meal logging and AI chat shipped via the BYO-key copilot. Voice
+  logging (STT half) and wearable sync remain open — wearable sync is
+  explicitly deferred to the repo owner, not scheduled for an agent
+  session.

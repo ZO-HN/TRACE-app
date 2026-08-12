@@ -4,7 +4,7 @@
 //    from its local uri via expo-file-system (never loaded into JS memory —
 //    form-check clips can be up to 50MB, see storage/policy.ts).
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../supabase';
 import type { PresignRequest, PresignResponse } from './types';
 import type { RNFile } from './uploadMedia';

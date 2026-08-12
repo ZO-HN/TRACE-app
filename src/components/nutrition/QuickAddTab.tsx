@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useNutritionLogs } from '../../hooks/useNutritionLogs';
@@ -14,6 +14,7 @@ import {
   scannedMealToQuickEntryText,
 } from '../../lib/ai/mealPhotoScan';
 import type { MealTemplateItem } from '../../lib/nutrition/types';
+import VoiceInputButton from '../ai/VoiceInputButton';
 import Button from '../ui/Button';
 
 export default function QuickAddTab({
@@ -88,13 +89,16 @@ export default function QuickAddTab({
 
   return (
     <View className="p-4 gap-3">
-      <TextInput
-        value={text}
-        onChangeText={setText}
-        placeholder="e.g. 80g protein, 40g carbs, 20g fat, 650 kcal"
-        placeholderTextColor="#6B7280"
-        className="h-11 bg-surface border border-border rounded-xl px-3 text-white"
-      />
+      <View className="flex-row items-center gap-2">
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="e.g. 80g protein, 40g carbs, 20g fat, 650 kcal"
+          placeholderTextColor="#6B7280"
+          className="flex-1 h-11 bg-surface border border-border rounded-xl px-3 text-white"
+        />
+        <VoiceInputButton onTranscribed={setText} onError={setError} />
+      </View>
       <Button
         variant="secondary"
         size="sm"

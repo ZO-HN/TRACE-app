@@ -3,6 +3,7 @@
 // base URL the user configured in src/lib/ai/secureConfig.ts (OpenAI, a
 // compatibility proxy for another provider, or a self-hosted model).
 
+import * as FileSystem from 'expo-file-system/legacy';
 import type { AICopilotConfig } from './types';
 
 export interface ChatMessage {
@@ -62,5 +63,48 @@ export async function chatCompletion(
     return { ok: false, error: e instanceof Error ? e.message : 'Request failed.' };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+export interface TranscriptionResult {
+  ok: true;
+  text: string;
+}
+export interface TranscriptionError {
+  ok: false;
+  error: string;
+}
+
+/** Transcribes a local audio file via the configured endpoint's
+ * /audio/transcriptions route (the Whisper-compatible shape most
+ * OpenAI-compatible providers expose alongside /chat/completions). */
+export async function transcribeAudio(
+  config: AICopilotConfig,
+  fileUri: string,
+  mimeType: string,
+): Promise<TranscriptionResult | TranscriptionError> {
+  try {
+    const result = await FileSystem.uploadAsync(
+      `${config.baseUrl.replace(/\/$/, '')}/audio/transcriptions`,
+      fileUri,
+      {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType,
+        parameters: { model: 'whisper-1' },
+        headers: { Authorization: `Bearer ${config.apiKey}` },
+      },
+    );
+
+    if (result.status < 200 || result.status >= 300) {
+      return { ok: false, error: `${result.status}: ${result.body.slice(0, 200)}` };
+    }
+
+    const json = JSON.parse(result.body) as { text?: string };
+    if (!json.text) return { ok: false, error: 'No transcription text in the response.' };
+    return { ok: true, text: json.text };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Transcription failed.' };
   }
 }

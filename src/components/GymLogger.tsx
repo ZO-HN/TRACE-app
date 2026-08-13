@@ -127,6 +127,20 @@ export default function GymLogger({
     [],
   );
 
+  const resolveExerciseId = (exercise: Exercise) =>
+    lookupExerciseId(catalogByName, exercise.name) ?? placeholderIds[exercise.id] ?? exercise.id;
+
+  // Auto-regulate: last logged set per exercise (this session or a prior
+  // one) plus a local calibration multiplier from thumbs up/down feedback —
+  // together drive predictNextSet's weight/rep suggestion below.
+  const exerciseIds = useMemo(
+    () => exercises.map(resolveExerciseId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [exercises, catalogByName, placeholderIds],
+  );
+  const lastSets = useLastSetsForExercises(userId, exerciseIds);
+  const calibration = useSetCalibration();
+
   // Form-check clips: uploaded to R2 pre-completion; the object key rides
   // along on the queued set log (set_logs.form_video_s3_key).
   const media = useMediaUpload();
@@ -234,10 +248,7 @@ export default function GymLogger({
       const input = {
         id: randomUUID(),
         sessionId: sessionRef.current.id,
-        exerciseId:
-          lookupExerciseId(catalogByName, exercise.name) ??
-          placeholderIds[exercise.id] ??
-          exercise.id,
+        exerciseId: resolveExerciseId(exercise),
         setNumber: sIndex + 1,
         weightLbs: targetSet.weight,
         reps: exercise.isIsometric ? '' : targetSet.reps,
@@ -331,18 +342,28 @@ export default function GymLogger({
 
                 {exercise.sets.map((set, sIndex) => {
                   const e1RM = calculateE1RM(set.weight, set.reps);
-                  // Auto-regulated hint: only for the first not-yet-completed
-                  // set right after a completed one in this same exercise —
-                  // an RPE-based lookback within this session, see
-                  // suggestNextSet.ts. No AI call, no persisted history read.
+                  // Auto-regulated hint: a same-session completed set right
+                  // before this one, or (for a set 1) the last time this
+                  // exercise was logged in any session — see
+                  // predictNextSet in suggestNextSet.ts. Fully on-device,
+                  // no AI call.
+                  const exerciseId = exerciseIds[eIndex];
                   const prevSet = sIndex > 0 ? exercise.sets[sIndex - 1] : null;
-                  const showSuggestion =
-                    !set.completed && !exercise.isIsometric && prevSet?.completed;
-                  const suggestion = showSuggestion
-                    ? suggestNextSet({
-                        weight_kg: lbsToKg(parseFloat(prevSet!.weight) || 0),
-                        reps: parseInt(prevSet!.reps, 10) || 0,
-                        rpe: prevSet!.rpe ? parseInt(prevSet!.rpe, 10) : null,
+                  const reference = prevSet?.completed
+                    ? {
+                        weight_kg: lbsToKg(parseFloat(prevSet.weight) || 0),
+                        reps: parseInt(prevSet.reps, 10) || 0,
+                        rpe: prevSet.rpe ? parseInt(prevSet.rpe, 10) : null,
+                      }
+                    : sIndex === 0
+                      ? (lastSets[exerciseId] ?? null)
+                      : null;
+                  const showSuggestion = !set.completed && !exercise.isIsometric && reference;
+                  const prediction = showSuggestion
+                    ? predictNextSet({
+                        reference,
+                        setsCompletedThisSession: exercise.sets.slice(0, sIndex).filter((s) => s.completed).length,
+                        calibrationMultiplier: calibration.multiplierFor(exerciseId),
                       })
                     : null;
                   return (
@@ -350,16 +371,33 @@ export default function GymLogger({
                       key={set.id}
                       className={`gap-2 p-2 rounded-xl ${set.completed ? 'bg-green-900/10' : ''}`}
                     >
-                      {suggestion && suggestion.reason !== 'no_history' && (
-                        <Text className="text-[11px] text-blue-400 pl-10">
-                          Suggested: {kgToLbs(suggestion.suggested_weight_kg)} lbs (
-                          {suggestion.reason === 'increase'
-                            ? 'last set felt easy'
-                            : suggestion.reason === 'decrease'
-                              ? 'last set was maximal'
-                              : 'hold steady'}
-                          )
-                        </Text>
+                      {prediction && prediction.reason !== 'no_history' && (
+                        <View className="flex-row items-center justify-between pl-10 pr-1">
+                          <Text className="text-[11px] text-blue-400 flex-1">
+                            Suggested: {kgToLbs(prediction.suggested_weight_kg)} lbs
+                            {prediction.suggested_reps ? ` × ${prediction.suggested_reps}` : ''} (
+                            {prediction.reason === 'increase'
+                              ? 'last set felt easy'
+                              : prediction.reason === 'decrease'
+                                ? 'last set was maximal'
+                                : 'hold steady'}
+                            )
+                          </Text>
+                          <Pressable
+                            hitSlop={6}
+                            onPress={() => calibration.feedback(exerciseId, 'up')}
+                            className="p-1"
+                          >
+                            <Ionicons name="thumbs-up-outline" size={13} color="#6B7280" />
+                          </Pressable>
+                          <Pressable
+                            hitSlop={6}
+                            onPress={() => calibration.feedback(exerciseId, 'down')}
+                            className="p-1"
+                          >
+                            <Ionicons name="thumbs-down-outline" size={13} color="#6B7280" />
+                          </Pressable>
+                        </View>
                       )}
                       <View className="flex-row items-center gap-2">
                         <Text className="w-8 text-gray-400 font-medium text-sm text-center">

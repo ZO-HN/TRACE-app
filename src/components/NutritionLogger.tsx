@@ -3,11 +3,14 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNutritionLogs } from '../hooks/useNutritionLogs';
 import { useNutritionWeeklySummary } from '../hooks/useNutritionWeeklySummary';
+import { useSessionSummaries } from '../hooks/useSessionSummaries';
+import { useBodyweightLogs } from '../hooks/useBodyweightLogs';
 import { buildDateStrip, sumTodayMacros } from '../lib/dashboard/today';
 import { groupIntoMealSlots } from '../lib/nutrition/mealSlots';
 import { netCarbsG } from '../lib/nutrition/netCarbs';
 import MacroProgressBar from './nutrition/MacroProgressBar';
 import MealSlotCard from './nutrition/MealSlotCard';
+import TrainingCorrelation from './nutrition/TrainingCorrelation';
 import Skeleton from './ui/Skeleton';
 
 const DEFAULT_MEAL_SLOT_COUNT = 6;
@@ -27,6 +30,8 @@ export default function NutritionLogger({ userId }: { userId: string }) {
   const [extraSlots, setExtraSlots] = useState(0);
   const [showNetCarbs, setShowNetCarbs] = useState(false);
   const { comparison: weekly } = useNutritionWeeklySummary(userId);
+  const { sessions } = useSessionSummaries(userId, 30);
+  const { entries: bwEntries } = useBodyweightLogs(userId, 30);
 
   const today = new Date();
   const todayKey = today.toISOString().slice(0, 10);
@@ -119,6 +124,12 @@ export default function NutritionLogger({ userId }: { userId: string }) {
           </View>
         </View>
       )}
+
+      <TrainingCorrelation
+        nutritionEntries={entries}
+        trainingDates={sessions.map((s) => s.completed_at)}
+        bodyweightEntries={bwEntries}
+      />
 
       <View className="gap-2">
         {slots.map((slotEntries, i) => (

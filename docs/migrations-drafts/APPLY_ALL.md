@@ -1,31 +1,24 @@
-# TRACE — Pending Supabase Migrations (apply in the dashboard repo)
+# TRACE — Supabase Migration History (drafted in this repo)
 
-This file bundles every drafted-but-unapplied migration from the client
-repo's `docs/migrations-drafts/` folder. None of this has been applied to
-the live Supabase project yet — the client code for each feature already
-degrades gracefully (empty states / "not live yet" screens) until it is.
+**Status as of 2026-08-15: everything in this file (001-010, 012) is
+APPLIED and live on the Supabase project (`lfaxkrorjljdeefnafjb`).** 011
+was superseded before ever being applied — see its section. This file is
+now a historical record of what was drafted here and confirmed live via
+direct REST checks (querying each table/column returns `[]`, not a
+missing-table/column error), not a to-do list.
 
-**Apply in the order listed** — `002` and `004` reference tables/columns
-from earlier files (`profiles`, `workout_templates`, `set_logs`), and `003`
-is the largest single migration (four new tables), so review it with the
-most care.
+Applied via the coach-dashboard repo's linked `supabase/` (it owns the
+project link + a working CLI; this repo only ever had the anon key). Some
+of these (esp. 010) were also independently applied by that repo's own
+migration files with equivalent SQL — noted per-section below.
 
-Each migration is idempotent (`create table if not exists`, `add column if
-not exists`) — safe to re-run if a prior attempt partially applied.
-
----
-
-## How to apply
-
-Paste each numbered SQL block below into the Supabase project's **SQL
-Editor** (or save each as its own file under this repo's
-`supabase/migrations/` and run `supabase db push`), in order, and execute.
-After all six are applied, no client-side code changes are needed — every
-feature already reads/writes these exact table and column names.
+Each migration was idempotent (`create table if not exists`, `add column
+if not exists`), so re-running any of them again is harmless if it's ever
+in question.
 
 ---
 
-## 001 — Bodyweight Settings
+## 001 — Bodyweight Settings — APPLIED
 
 Backs: Bodyweight Settings screen (moving-average window picker, weigh-in
 reminders). Owner-only RLS, matching `bodyweight_logs`.
@@ -51,7 +44,7 @@ create policy "bodyweight_settings_owner_all"
 
 ---
 
-## 002 — Workout Folders
+## 002 — Workout Folders — APPLIED
 
 Backs: "My Workouts" folder grouping/move/delete. **Touches
 `workout_templates`, a table the dashboard repo owns** — review before
@@ -83,7 +76,7 @@ alter table public.workout_templates
 
 ---
 
-## 003 — Nutrition Extensions (Custom Foods, Favorites, Supplements, Meal Templates)
+## 003 — Nutrition Extensions (Custom Foods, Favorites, Supplements, Meal Templates) — APPLIED
 
 Backs: the "Add to Meal" modal's Custom/Favorites/Supplements/Meals tabs.
 **Largest migration — four new tables.** `supplements` is reference data
@@ -174,7 +167,7 @@ create policy "meal_template_items_owner_all" on public.meal_template_items
 
 ---
 
-## 004 — Leaderboards (Follows + RPC)
+## 004 — Leaderboards (Follows + RPC) — APPLIED
 
 Backs: per-exercise leaderboards. One-way `follows` (not mutual
 friendships) — simpler join logic, matches typical opt-in-follow UX.
@@ -270,7 +263,7 @@ grant execute on function public.get_exercise_leaderboard(uuid) to authenticated
 
 ---
 
-## 005 — Cardio Tracking
+## 005 — Cardio Tracking — APPLIED
 
 Backs: the Cardio overview, exercise catalog, and per-day entry screens.
 
@@ -305,7 +298,7 @@ create index if not exists cardio_entries_user_date_idx
 
 ---
 
-## 006 — Sleep Tracking
+## 006 — Sleep Tracking — APPLIED
 
 Backs: the Log Sleep bottom sheet and Sleep overview page. One row per
 night (`unique (user_id, sleep_date)`), upserted like `bodyweight_logs`.
@@ -332,7 +325,7 @@ create index if not exists sleep_logs_user_date_idx
 
 ---
 
-## 007 — Social Discovery (Coach Roster RPC)
+## 007 — Social Discovery (Coach Roster RPC) — APPLIED
 
 Backs: the Social tab's Connected/Discover lists. **Verify first** that
 `public.profiles` actually has `coach_id` and `role` columns with those
@@ -357,6 +350,23 @@ $$;
 
 grant execute on function public.list_coach_roster() to authenticated;
 ```
+
+---
+
+## 008 — Tracked-parity Tier A — APPLIED 2026-08-15
+
+Backs: warm-up set exclusion from muscle volume, set failure marking,
+isometric hold (duration) sets, net-carbs/sugar nutrition fields, water
+logging. Applied as `20260815040000_tracked_parity_tier_a.sql`. Full SQL
+in `docs/migrations-drafts/008_tracked_parity_tier_a.sql` — not
+reproduced here since this file predates that draft being tracked in
+APPLY_ALL; see the standalone file for the exact statements.
+
+## 009 — Tracked-parity Tier B — APPLIED 2026-08-15
+
+Backs: progress photos, training-phase "roadmap" goals, notification quiet
+hours. Applied as `20260815050000_tracked_parity_tier_b.sql`. Full SQL in
+`docs/migrations-drafts/009_tracked_parity_tier_b.sql`.
 
 ---
 
@@ -523,21 +533,21 @@ grant execute on function public.join_program_by_token(uuid) to authenticated;
 
 ---
 
-## After applying
+## Post-apply verification (2026-08-15)
 
-No client code changes are required — every hook (`useBodyweightSettings`,
-`useWorkoutFolders`, `useCustomFoods`/`useFavoriteFoods`/`useSupplements`/
-`useMealTemplates`, `useLeaderboard`/`useFollows`/`useFollowers`,
-`useCardioExercises`/`useCardioEntries`/`useCardioHistory`, `useSleepLogs`,
-`useCoachRoster`) already targets these exact table/column/function names
-and will start working live the moment each migration lands. Spot-check in
-the app:
+All of the above confirmed live via direct unauthenticated REST calls to
+`https://lfaxkrorjljdeefnafjb.supabase.co/rest/v1/<table>` — each returned
+`[]` (RLS-filtered empty result) rather than a missing-table/column error,
+for: `bodyweight_settings`, `workout_folders`, `custom_foods`,
+`favorite_foods`, `supplements`, `meal_templates`, `follows`,
+`cardio_exercises`, `cardio_entries`, `sleep_logs`, `list_coach_roster`
+(RPC), `set_logs.is_warmup`, `water_logs`, `progress_photos`,
+`training_phases`, `notification_settings`, `workout_programs.share_token`.
+Real in-app click-through (not just schema presence) is still unverified —
+see the repo's device-testing caveat elsewhere.
 
-- Bodyweight Settings screen saves without falling back to session-only.
-- A workout can be moved into a folder from My Workouts.
-- Add to Meal → Custom/Favorites/Supplements/Meals tabs stop showing empty
-  states.
-- `/leaderboards/<exerciseId>` shows ranked entries instead of "not live yet".
-- `/cardio` shows real weekly totals after logging an entry.
-- `/sleep` shows a real last-night summary after using Log Sleep.
-- The Social tab's Discover list shows other trainees instead of "not live yet".
+No client code changes are needed anywhere in this list except
+`useStepsLogs.ts`, which was rewritten to target
+`wearable_biometrics.step_count` (the coach-dashboard repo's own,
+different, already-applied approach) instead of the `steps_logs` table
+`011` originally drafted — see that section above.

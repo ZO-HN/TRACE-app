@@ -20,9 +20,14 @@ export default function ProgramsScreen() {
       <ScreenHeader
         title="Programs"
         right={
-          <Pressable onPress={() => router.push('/programs/new')}>
-            <Ionicons name="add" size={22} color="#FFFFFF" />
-          </Pressable>
+          <>
+            <Pressable onPress={() => router.push('/programs/join')}>
+              <Ionicons name="link-outline" size={20} color="#FFFFFF" />
+            </Pressable>
+            <Pressable onPress={() => router.push('/programs/new')}>
+              <Ionicons name="add" size={22} color="#FFFFFF" />
+            </Pressable>
+          </>
         }
       />
 

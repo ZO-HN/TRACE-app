@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { usePrograms } from '../../src/hooks/usePrograms';
@@ -16,8 +17,9 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function ProgramDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useTraceUserContext();
-  const { programs, isLoading, deleteProgram } = usePrograms(profile!.id);
+  const { programs, isLoading, deleteProgram, generateShareLink } = usePrograms(profile!.id);
   const { enrollments, enroll, advance } = useProgramEnrollment(profile!.id);
+  const [sharing, setSharing] = useState(false);
 
   const program = programs.find((p) => p.id === id);
   const activeEnrollment = enrollments.find((e) => e.programId === id && !e.completedAt);
@@ -59,9 +61,29 @@ export default function ProgramDetailScreen() {
 
   const progress = activeEnrollment ? enrollmentProgressPct(activeEnrollment, program.totalWeeks) : null;
 
+  const handleShare = async () => {
+    setSharing(true);
+    const result = await generateShareLink(program.id, program.shareToken);
+    setSharing(false);
+    if (!result.ok) {
+      Alert.alert('Could not share', result.error);
+      return;
+    }
+    void Share.share({
+      message: `Join my "${program.name}" program on TRACE — open Programs > Join a Program and paste this code:\n\n${result.token}`,
+    });
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScreenHeader title={program.name} />
+      <ScreenHeader
+        title={program.name}
+        right={
+          <Pressable disabled={sharing} onPress={() => void handleShare()}>
+            <Ionicons name="share-outline" size={20} color={sharing ? '#6B7280' : '#FFFFFF'} />
+          </Pressable>
+        }
+      />
       <ScrollView contentContainerClassName="p-4 gap-4">
         <Card className="p-4 gap-2">
           {program.description && <Text className="text-sm text-gray-300">{program.description}</Text>}

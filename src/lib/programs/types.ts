@@ -30,6 +30,7 @@ export interface Program {
   totalWeeks: number;
   createdAt: string;
   days: ProgramDay[];
+  shareToken: string | null;
 }
 
 export interface ProgramInput {

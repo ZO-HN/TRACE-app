@@ -481,6 +481,69 @@ create index if not exists idx_steps_logs_user_date on public.steps_logs(user_id
 
 ---
 
+## 012 — Program Sharing
+
+Backs: share-by-link + join on `/programs`. Builds on `010`. Scoped to
+authenticated users, not truly public — see the SQL file's header comment
+for why, and for a known limitation around joined programs referencing
+templates the joiner may not have read access to.
+
+```sql
+alter table public.workout_programs
+  add column if not exists share_token uuid unique;
+
+create policy "workout_programs_share_token_read"
+  on public.workout_programs
+  for select
+  to authenticated
+  using (share_token is not null);
+
+create policy "program_days_share_token_read"
+  on public.program_days
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.workout_programs p
+      where p.id = program_id and p.share_token is not null
+    )
+  );
+
+create or replace function public.join_program_by_token(p_token uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_source public.workout_programs%rowtype;
+  v_new_program_id uuid := gen_random_uuid();
+begin
+  select * into v_source from public.workout_programs where share_token = p_token;
+  if not found then
+    raise exception 'No program found for that share link.';
+  end if;
+
+  insert into public.workout_programs (id, owner_id, name, description, category, split_type, total_weeks)
+  values (
+    v_new_program_id, auth.uid(), v_source.name, v_source.description,
+    v_source.category, v_source.split_type, v_source.total_weeks
+  );
+
+  insert into public.program_days (id, program_id, week_number, day_of_week, workout_template_id, notes)
+  select gen_random_uuid(), v_new_program_id, week_number, day_of_week, workout_template_id, notes
+  from public.program_days
+  where program_id = v_source.id;
+
+  return v_new_program_id;
+end;
+$$;
+
+grant execute on function public.join_program_by_token(uuid) to authenticated;
+```
+
+---
+
 ## After applying
 
 No client code changes are required — every hook (`useBodyweightSettings`,

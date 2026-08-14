@@ -441,6 +441,46 @@ create policy "program_enrollments_owner_all"
 
 ---
 
+## 011 — Steps Tracking
+
+Backs: the Dashboard's Steps card, currently session-local only (resets on
+remount). Mirrors `bodyweight_logs` exactly — same one-row-per-day shape,
+same owner + coach-view RLS split.
+
+```sql
+create table if not exists public.steps_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  recorded_date date not null,
+  steps int not null check (steps >= 0 and steps <= 200000),
+  created_at timestamptz not null default now(),
+  unique (user_id, recorded_date)
+);
+
+alter table public.steps_logs enable row level security;
+
+create policy "steps_logs_owner_all"
+  on public.steps_logs
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "steps_logs_coach_view"
+  on public.steps_logs
+  for select
+  using (
+    exists (
+      select 1 from public.profiles client
+      where client.id = steps_logs.user_id
+        and client.coach_id = auth.uid()
+    )
+  );
+
+create index if not exists idx_steps_logs_user_date on public.steps_logs(user_id, recorded_date desc);
+```
+
+---
+
 ## After applying
 
 No client code changes are required — every hook (`useBodyweightSettings`,

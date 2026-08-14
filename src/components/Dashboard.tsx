@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
 import { useBodyweightLogs } from '../hooks/useBodyweightLogs';
+import { useStepsLogs } from '../hooks/useStepsLogs';
 import { useNutritionLogs } from '../hooks/useNutritionLogs';
 import { useSleepLogs } from '../hooks/useSleepLogs';
 import { useWaterLogs } from '../hooks/useWaterLogs';
@@ -119,24 +120,32 @@ function QuickLogWeight({
   );
 }
 
-// No steps table/hook exists in this app at all (unlike bodyweight, which
-// has a real bodyweight_logs table) — this is session-local only, same
-// "documented, not silently fake" caveat as the Nutrition tab's extra meal
-// slots. Persisting it for real needs either a manual step-count table or
-// an actual Health Connect/HealthKit integration (the latter is exactly
-// what's already stubbed as "Coming soon" in Bodyweight Settings).
-function QuickLogSteps({ onSave, onDone }: { onSave: (steps: number) => void; onDone: () => void }) {
+// Backed by steps_logs (docs/migrations-drafts/011_steps_tracking.sql) via
+// useStepsLogs — falls back to session-only if that migration isn't applied
+// yet (isSupported: false), same degrade-gracefully pattern as programs.
+function QuickLogSteps({
+  onSave,
+  onDone,
+}: {
+  onSave: (steps: number) => Promise<{ ok: boolean; error?: string }>;
+  onDone: () => void;
+}) {
   const [value, setValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const steps = parseInt(value, 10);
     if (!Number.isFinite(steps) || steps < 0 || steps > 200_000) {
       setError('Enter a realistic step count.');
       return;
     }
-    onSave(steps);
-    onDone();
+    setSubmitting(true);
+    setError(null);
+    const result = await onSave(steps);
+    setSubmitting(false);
+    if (result.ok) onDone();
+    else setError(result.error ?? 'Could not log that entry.');
   };
 
   return (
@@ -158,7 +167,7 @@ function QuickLogSteps({ onSave, onDone }: { onSave: (steps: number) => void; on
         <Pressable onPress={onDone} className="flex-1 h-9 items-center justify-center">
           <Text className="text-gray-500 text-xs font-medium">Cancel</Text>
         </Pressable>
-        <Button size="sm" fullWidth onPress={handleSubmit} disabled={!value.trim()}>
+        <Button size="sm" fullWidth onPress={() => void handleSubmit()} loading={submitting} disabled={!value.trim()}>
           Save
         </Button>
       </View>
@@ -204,15 +213,16 @@ export default function Dashboard({ userId }: { userId: string }) {
   const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
   const { logs: sleepLogs, logSleep } = useSleepLogs(userId, daysAgoKey(7));
   const { todayMl: waterMl, logToday: logWater } = useWaterLogs(userId);
+  const { entries: stepsEntries, logToday: logSteps } = useStepsLogs(userId, 7);
   const [loggingWeight, setLoggingWeight] = useState(false);
   const [loggingSteps, setLoggingSteps] = useState(false);
-  const [todaySteps, setTodaySteps] = useState<number | null>(null);
   const [loggingWater, setLoggingWater] = useState(false);
   const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
   const lastSleep = lastNight(sleepLogs);
 
   const trend = latestTrend(bwEntries);
   const macros = sumTodayMacros(nutritionEntries, today);
+  const todayStepsEntry = stepsEntries.find((e) => e.recorded_date === daysAgoKey(0));
   const dateLabel = today.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -294,14 +304,14 @@ export default function Dashboard({ userId }: { userId: string }) {
             )}
           </DashCard>
         </Pressable>
-        <DashCard title="Steps" badge={todaySteps === null ? 'No log' : 'Today'} className="flex-1">
-          {todaySteps !== null && !loggingSteps ? (
+        <DashCard title="Steps" badge={todayStepsEntry === undefined ? 'No log' : 'Today'} className="flex-1">
+          {todayStepsEntry !== undefined && !loggingSteps ? (
             <Text className="text-white text-lg font-bold">
-              {todaySteps.toLocaleString()} <Text className="text-xs text-gray-500 font-normal">steps</Text>
+              {todayStepsEntry.steps.toLocaleString()} <Text className="text-xs text-gray-500 font-normal">steps</Text>
             </Text>
           ) : null}
           {loggingSteps ? (
-            <QuickLogSteps onSave={setTodaySteps} onDone={() => setLoggingSteps(false)} />
+            <QuickLogSteps onSave={logSteps} onDone={() => setLoggingSteps(false)} />
           ) : (
             <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingSteps(true)}>
               Log Steps

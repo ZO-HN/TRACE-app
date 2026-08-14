@@ -2,6 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
+// Dev-only auto-login — skips the sign-in screen during development by
+// signing into a real account (still a real Supabase session, so RLS keeps
+// working normally everywhere; this is NOT an auth bypass). Set
+// EXPO_PUBLIC_DEV_AUTO_LOGIN_EMAIL/PASSWORD in .env.local to enable; unset
+// them (or just don't set them) to get the normal login screen back once
+// the app is ready to test for real. Hard-gated to __DEV__ so it can never
+// fire in a release build even if those vars somehow end up set there —
+// but .env.local itself must never be used to produce a production build,
+// since EXPO_PUBLIC_* values are inlined into the JS bundle in plaintext
+// regardless of the __DEV__ runtime check.
+const DEV_AUTO_LOGIN_EMAIL = process.env.EXPO_PUBLIC_DEV_AUTO_LOGIN_EMAIL;
+const DEV_AUTO_LOGIN_PASSWORD = process.env.EXPO_PUBLIC_DEV_AUTO_LOGIN_PASSWORD;
+const DEV_AUTO_LOGIN_ENABLED = __DEV__ && !!DEV_AUTO_LOGIN_EMAIL && !!DEV_AUTO_LOGIN_PASSWORD;
+
 // ==========================================
 // Every account in this app is a trainee (this client never creates coach
 // accounts). Signups no longer auto-enroll under a default coach — a new
@@ -90,7 +104,20 @@ export function useTraceUser(): UseTraceUserReturn {
         return;
       }
 
-      const currentUser = session?.user ?? null;
+      let currentUser = session?.user ?? null;
+
+      if (!currentUser && DEV_AUTO_LOGIN_ENABLED) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: DEV_AUTO_LOGIN_EMAIL!,
+          password: DEV_AUTO_LOGIN_PASSWORD!,
+        });
+        if (signInError) {
+          console.warn('DEV_AUTO_LOGIN failed, falling back to the sign-in screen:', signInError.message);
+        } else {
+          currentUser = signInData.user;
+        }
+      }
+
       userRef.current = currentUser;
       if (isMounted) setUser(currentUser);
 

@@ -12,8 +12,8 @@ export function useLogFood(userId: string) {
   const enqueueNutritionLog = useOutboxStore((s) => s.enqueueNutritionLog);
 
   return useCallback(
-    async (name: string, macros: FoodMacros) => {
-      const payload = toNutritionLogFromFood(randomUUID(), userId, name, macros);
+    async (name: string, macros: FoodMacros, mealSlot?: number | null) => {
+      const payload = toNutritionLogFromFood(randomUUID(), userId, name, macros, 'TYPED', mealSlot);
       await enqueueNutritionLog(payload);
     },
     [userId, enqueueNutritionLog],

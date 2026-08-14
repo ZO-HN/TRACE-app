@@ -7,9 +7,11 @@ import EmptyTabState from './EmptyTabState';
 
 export default function SupplementsTab({
   userId,
+  slot,
   onLogged,
 }: {
   userId: string;
+  slot?: number | null;
   onLogged: (item: MealTemplateItem) => void;
 }) {
   const { supplements, isLoading } = useSupplements();
@@ -34,7 +36,7 @@ export default function SupplementsTab({
             name={s.name}
             macros={s}
             onLog={() => {
-              void logFood(s.name, s);
+              void logFood(s.name, s, slot);
               onLogged({
                 name: s.name,
                 protein_g: s.protein_g,

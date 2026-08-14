@@ -29,4 +29,14 @@ describe('toNutritionLogInsert', () => {
     });
     expect(payload.protein_g).toBe(25);
   });
+
+  it('includes meal_slot when passed', () => {
+    const payload = toNutritionLogInsert('log-4', 'user-1', 'snack', undefined, 3);
+    expect(payload.meal_slot).toBe(3);
+  });
+
+  it('omits meal_slot entirely when not passed', () => {
+    const payload = toNutritionLogInsert('log-5', 'user-1', 'snack');
+    expect('meal_slot' in payload).toBe(false);
+  });
 });

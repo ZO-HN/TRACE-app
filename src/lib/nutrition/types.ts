@@ -20,6 +20,10 @@ export interface NutritionLogInsert {
    * Tier A fields in mapSetLog.ts. */
   fiber_g?: number | null;
   sugar_g?: number | null;
+  /** Added in docs/migrations-drafts/013_nutrition_meal_slot.sql — the real
+   * "which Meal N card was this logged from" slot, replacing the
+   * chronological-order approximation in mealSlots.ts. */
+  meal_slot?: number | null;
 }
 
 // The following four map to draft tables — see

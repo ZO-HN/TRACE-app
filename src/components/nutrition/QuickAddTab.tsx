@@ -19,9 +19,11 @@ import Button from '../ui/Button';
 
 export default function QuickAddTab({
   userId,
+  slot,
   onLogged,
 }: {
   userId: string;
+  slot?: number | null;
   onLogged: (item: MealTemplateItem) => void;
 }) {
   const { logEntry } = useNutritionLogs(userId);
@@ -42,7 +44,7 @@ export default function QuickAddTab({
   const handleLog = async () => {
     setSubmitting(true);
     setError(null);
-    const result = await logEntry(text);
+    const result = await logEntry(text, slot);
     setSubmitting(false);
     if (result.ok) {
       onLogged({ name: text.trim(), ...parsed });

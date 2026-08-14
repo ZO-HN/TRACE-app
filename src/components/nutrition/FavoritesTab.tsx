@@ -7,9 +7,11 @@ import EmptyTabState from './EmptyTabState';
 
 export default function FavoritesTab({
   userId,
+  slot,
   onLogged,
 }: {
   userId: string;
+  slot?: number | null;
   onLogged: (item: MealTemplateItem) => void;
 }) {
   const { favorites, isLoading, removeFavorite } = useFavoriteFoods(userId);
@@ -34,7 +36,7 @@ export default function FavoritesTab({
             name={food.name}
             macros={food}
             onLog={() => {
-              void logFood(food.name, food);
+              void logFood(food.name, food, slot);
               onLogged({
                 name: food.name,
                 protein_g: food.protein_g,

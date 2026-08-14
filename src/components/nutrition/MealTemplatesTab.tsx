@@ -8,9 +8,11 @@ import EmptyTabState from '../nutrition/EmptyTabState';
 
 export default function MealTemplatesTab({
   userId,
+  slot,
   onLogged,
 }: {
   userId: string;
+  slot?: number | null;
   onLogged: (item: MealTemplateItem) => void;
 }) {
   const { templates, isLoading } = useMealTemplates(userId);
@@ -40,7 +42,7 @@ export default function MealTemplatesTab({
               size="sm"
               onPress={() => {
                 for (const item of template.items) {
-                  void logFood(item.name, item);
+                  void logFood(item.name, item, slot);
                   onLogged(item);
                 }
               }}

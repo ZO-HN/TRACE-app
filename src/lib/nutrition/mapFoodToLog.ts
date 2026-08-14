@@ -10,6 +10,7 @@ export function toNutritionLogFromFood(
   name: string,
   macros: FoodMacros,
   method: NutritionMethod = 'TYPED',
+  mealSlot?: number | null,
 ): NutritionLogInsert {
   return {
     id,
@@ -20,5 +21,6 @@ export function toNutritionLogFromFood(
     carbs_g: macros.carbs_g,
     fat_g: macros.fat_g,
     calories: macros.calories,
+    ...(mealSlot != null ? { meal_slot: mealSlot } : {}),
   };
 }

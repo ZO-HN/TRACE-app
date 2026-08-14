@@ -14,6 +14,7 @@ export function toNutritionLogInsert(
   userId: string,
   description: string,
   parsed: ParsedMacros = parseQuickEntry(description),
+  mealSlot?: number | null,
 ): NutritionLogInsert {
   return {
     id,
@@ -24,6 +25,7 @@ export function toNutritionLogInsert(
     carbs_g: parsed.carbs_g,
     fat_g: parsed.fat_g,
     calories: parsed.calories,
+    ...(mealSlot != null ? { meal_slot: mealSlot } : {}),
   };
 }
 

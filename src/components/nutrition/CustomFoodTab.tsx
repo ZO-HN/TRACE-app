@@ -9,9 +9,11 @@ import EmptyTabState from './EmptyTabState';
 
 export default function CustomFoodTab({
   userId,
+  slot,
   onLogged,
 }: {
   userId: string;
+  slot?: number | null;
   onLogged: (item: MealTemplateItem) => void;
 }) {
   const { foods, isLoading, createFood } = useCustomFoods(userId);
@@ -34,7 +36,7 @@ export default function CustomFoodTab({
               name={food.name}
               macros={food}
               onLog={() => {
-                void logFood(food.name, food);
+                void logFood(food.name, food, slot);
                 onLogged({
                   name: food.name,
                   protein_g: food.protein_g,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useMealTemplates } from '../../src/hooks/useMealTemplates';
 import type { MealTemplateItem } from '../../src/lib/nutrition/types';
@@ -25,6 +25,8 @@ const TABS: { key: MealTab; label: string }[] = [
 
 export default function AddMealModal() {
   const { profile } = useTraceUserContext();
+  const { slot: slotParam } = useLocalSearchParams<{ slot?: string }>();
+  const slot = slotParam ? parseInt(slotParam, 10) : null;
   const [tab, setTab] = useState<MealTab>('quick');
   const userId = profile!.id;
   const { saveTemplate } = useMealTemplates(userId);
@@ -57,7 +59,7 @@ export default function AddMealModal() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScreenHeader
-        title={`Meal${loggedItems.length > 0 ? ` (${loggedItems.length})` : ''}`}
+        title={`${slot ? `Meal ${slot}` : 'Meal'}${loggedItems.length > 0 ? ` (${loggedItems.length})` : ''}`}
         onClose={() => router.back()}
         right={
           <Pressable onPress={() => router.back()}>
@@ -83,11 +85,11 @@ export default function AddMealModal() {
       </ScrollView>
 
       <View className="flex-1">
-        {tab === 'quick' && <QuickAddTab userId={userId} onLogged={onLogged} />}
-        {tab === 'favorites' && <FavoritesTab userId={userId} onLogged={onLogged} />}
-        {tab === 'custom' && <CustomFoodTab userId={userId} onLogged={onLogged} />}
-        {tab === 'supplements' && <SupplementsTab userId={userId} onLogged={onLogged} />}
-        {tab === 'meals' && <MealTemplatesTab userId={userId} onLogged={onLogged} />}
+        {tab === 'quick' && <QuickAddTab userId={userId} slot={slot} onLogged={onLogged} />}
+        {tab === 'favorites' && <FavoritesTab userId={userId} slot={slot} onLogged={onLogged} />}
+        {tab === 'custom' && <CustomFoodTab userId={userId} slot={slot} onLogged={onLogged} />}
+        {tab === 'supplements' && <SupplementsTab userId={userId} slot={slot} onLogged={onLogged} />}
+        {tab === 'meals' && <MealTemplatesTab userId={userId} slot={slot} onLogged={onLogged} />}
       </View>
 
       {loggedItems.length > 0 && (

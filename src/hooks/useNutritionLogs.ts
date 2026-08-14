@@ -26,13 +26,15 @@ export interface NutritionEntry {
    * migration is applied; see the select-retry in refresh() below. */
   fiber_g?: number | null;
   sugar_g?: number | null;
+  /** 013_nutrition_meal_slot.sql — same select-retry treatment. */
+  meal_slot?: number | null;
 }
 
 export interface UseNutritionLogs {
   entries: NutritionEntry[];
   isLoading: boolean;
   error: string | null;
-  logEntry: (text: string) => Promise<{ ok: boolean; error?: string }>;
+  logEntry: (text: string, mealSlot?: number | null) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function useNutritionLogs(userId: string, limit = 20): UseNutritionLogs {
@@ -50,7 +52,9 @@ export function useNutritionLogs(userId: string, limit = 20): UseNutritionLogs {
     let fetchError: { message: string; code?: string } | null;
     ({ data, error: fetchError } = await supabase
       .from('nutrition_logs')
-      .select('id, logged_at, method, description, protein_g, carbs_g, fat_g, calories, fiber_g, sugar_g')
+      .select(
+        'id, logged_at, method, description, protein_g, carbs_g, fat_g, calories, fiber_g, sugar_g, meal_slot',
+      )
       .eq('user_id', userId)
       .order('logged_at', { ascending: false })
       .limit(limit));
@@ -76,12 +80,12 @@ export function useNutritionLogs(userId: string, limit = 20): UseNutritionLogs {
   }, [refresh]);
 
   const logEntry = useCallback(
-    async (text: string) => {
+    async (text: string, mealSlot?: number | null) => {
       const parsed = parseQuickEntry(text);
       if (!hasAnyMacro(parsed)) {
         return { ok: false, error: 'Could not find any macros or calories in that entry.' };
       }
-      const payload = toNutritionLogInsert(randomUUID(), userId, text, parsed);
+      const payload = toNutritionLogInsert(randomUUID(), userId, text, parsed, mealSlot);
       await enqueueNutritionLog(payload);
 
       // Optimistic — the row may still be sitting in the outbox offline, so
@@ -94,6 +98,7 @@ export function useNutritionLogs(userId: string, limit = 20): UseNutritionLogs {
           description: payload.description ?? null,
           protein_g: payload.protein_g ?? null,
           carbs_g: payload.carbs_g ?? null,
+          meal_slot: payload.meal_slot ?? null,
           fat_g: payload.fat_g ?? null,
           calories: payload.calories ?? null,
         },

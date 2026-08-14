@@ -47,7 +47,9 @@ export default function MealSlotCard({
             </Text>
           )}
         </View>
-        <Pressable onPress={() => router.push('/nutrition/add-meal')}>
+        <Pressable
+          onPress={() => router.push({ pathname: '/nutrition/add-meal', params: { slot: String(slotNumber) } })}
+        >
           <Ionicons name="add" size={20} color="#E5E7EB" />
         </Pressable>
         <Pressable

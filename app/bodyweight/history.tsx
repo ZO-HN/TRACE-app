@@ -1,4 +1,5 @@
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,20 +8,22 @@ import { useBodyweightLogs } from '../../src/hooks/useBodyweightLogs';
 import { useBodyweightSettings } from '../../src/hooks/useBodyweightSettings';
 import { groupByMonth } from '../../src/lib/bodyweight/groupByMonth';
 import { movingAverageAt, rateAt, tenDayLowAt } from '../../src/lib/bodyweight/movingAverage';
-import { kgToLbs } from '../../src/lib/units';
+import { formatWeightKg } from '../../src/lib/units';
+import { useUnitPreference } from '../../src/hooks/useUnitPreference';
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
+import BodyweightChart from '../../src/components/bodyweight/BodyweightChart';
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function fmt(n: number | null): string {
-  return n === null ? '-' : kgToLbs(n).toFixed(1);
-}
 
 export default function BodyweightHistoryScreen() {
   const { profile } = useTraceUserContext();
   const { entries, isLoading } = useBodyweightLogs(profile!.id, 365);
   const { settings } = useBodyweightSettings(profile!.id);
+  const { unit } = useUnitPreference();
+  const [view, setView] = useState<'list' | 'chart'>('list');
   const window = settings.movingAverageWindow;
+
+  const fmt = (n: number | null): string => (n === null ? '-' : formatWeightKg(n, unit).value.toFixed(1));
 
   const months = groupByMonth(entries);
   // Global index into `entries` (most-recent-first) is needed for the
@@ -33,8 +36,12 @@ export default function BodyweightHistoryScreen() {
         title="Bodyweight"
         right={
           <>
-            <Pressable onPress={() => Alert.alert('Coming soon', 'A chart view is not available yet.')}>
-              <Ionicons name="bar-chart-outline" size={20} color="#E5E7EB" />
+            <Pressable onPress={() => setView((v) => (v === 'list' ? 'chart' : 'list'))}>
+              <Ionicons
+                name={view === 'chart' ? 'list-outline' : 'bar-chart-outline'}
+                size={20}
+                color="#E5E7EB"
+              />
             </Pressable>
             <Pressable onPress={() => router.push('/bodyweight/settings')}>
               <Ionicons name="settings-outline" size={20} color="#E5E7EB" />
@@ -55,6 +62,15 @@ export default function BodyweightHistoryScreen() {
             Log a weigh-in from the Progress tab to start tracking.
           </Text>
         </View>
+      ) : view === 'chart' ? (
+        <ScrollView contentContainerClassName="px-4 py-4">
+          <BodyweightChart
+            entries={entries}
+            window={window}
+            toDisplay={(kg) => formatWeightKg(kg, unit).value}
+            unit={unit}
+          />
+        </ScrollView>
       ) : (
         <ScrollView contentContainerClassName="px-4 py-4 gap-6">
           {months.map((group) => (

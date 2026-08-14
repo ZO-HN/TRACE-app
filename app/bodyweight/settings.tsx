@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useBodyweightSettings } from '../../src/hooks/useBodyweightSettings';
+import { useUnitPreference } from '../../src/hooks/useUnitPreference';
 import {
   cancelWeighInReminder,
   requestReminderPermission,
@@ -28,6 +29,7 @@ function SectionCard({ title, description, children }: { title: string; descript
 export default function BodyweightSettingsScreen() {
   const { profile } = useTraceUserContext();
   const { settings, update } = useBodyweightSettings(profile!.id);
+  const { unit, setUnit } = useUnitPreference();
   const [reminderBusy, setReminderBusy] = useState(false);
 
   const handleToggleReminder = async (enabled: boolean) => {
@@ -93,6 +95,17 @@ export default function BodyweightSettingsScreen() {
               disabled={reminderBusy}
             />
           </View>
+        </SectionCard>
+
+        <SectionCard title="Units" description="Which unit weight is entered and displayed in across the app.">
+          <Select
+            value={unit}
+            options={[
+              { value: 'lbs', label: 'Pounds (lb)' },
+              { value: 'kg', label: 'Kilograms (kg)' },
+            ]}
+            onChange={setUnit}
+          />
         </SectionCard>
 
         <SectionCard

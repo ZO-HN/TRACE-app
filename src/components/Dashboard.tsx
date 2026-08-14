@@ -12,7 +12,8 @@ import { sumTodayMacros } from '../lib/dashboard/today';
 import { latestTrend } from '../lib/bodyweight/trend';
 import { isValidBodyweightLbs } from '../lib/bodyweight/mapBodyweight';
 import { durationHours, formatHours, lastNight } from '../lib/sleep/summary';
-import { kgToLbs } from '../lib/units';
+import { formatWeightKg, kgToLbs } from '../lib/units';
+import { useUnitPreference } from '../hooks/useUnitPreference';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import LogSleepSheet from './sleep/LogSleepSheet';
@@ -22,13 +23,6 @@ function daysAgoKey(days: number): string {
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
 }
-
-// This app has no unit-preference setting anywhere yet (Bodyweight Settings
-// only has moving-average window + reminders) — every other bodyweight
-// entry point (BodyweightLogger, the history table) already defaults to
-// lbs, so the inline quick-log below matches that rather than inventing a
-// unit toggle that doesn't exist in Settings.
-const WEIGHT_UNIT = 'lbs';
 
 function Badge({ children }: { children: string }) {
   return (
@@ -66,9 +60,11 @@ function comingSoon(feature: string) {
 
 function QuickLogWeight({
   logToday,
+  unit,
   onDone,
 }: {
   logToday: (weightLbs: number, note?: string) => Promise<{ ok: boolean; error?: string }>;
+  unit: 'lbs' | 'kg';
   onDone: () => void;
 }) {
   const [value, setValue] = useState('');
@@ -76,7 +72,11 @@ function QuickLogWeight({
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    const lbs = parseFloat(value);
+    const entered = parseFloat(value);
+    // logToday's contract is lbs regardless of display unit — convert a kg
+    // entry up front so the rest of the bodyweight pipeline (validation,
+    // storage) doesn't need to know about the preference.
+    const lbs = unit === 'kg' ? kgToLbs(entered) : entered;
     if (!isValidBodyweightLbs(lbs)) {
       setError('Enter a realistic bodyweight.');
       return;
@@ -98,13 +98,13 @@ function QuickLogWeight({
         <TextInput
           value={value}
           onChangeText={setValue}
-          placeholder={WEIGHT_UNIT}
+          placeholder={unit}
           placeholderTextColor="#6B7280"
           keyboardType="decimal-pad"
           autoFocus
           className="flex-1 h-9 bg-background border border-border rounded-lg px-2 text-center text-white text-sm"
         />
-        <Text className="text-xs text-gray-500">{WEIGHT_UNIT}</Text>
+        <Text className="text-xs text-gray-500">{unit}</Text>
       </View>
       {error && <Text className="text-[11px] text-red-400">{error}</Text>}
       <View className="flex-row gap-2">
@@ -200,6 +200,7 @@ export default function Dashboard({ userId }: { userId: string }) {
   const dateStrip = buildDateStrip(today);
   const { templateName, exercises } = useAssignedWorkout(userId);
   const { entries: bwEntries, logToday } = useBodyweightLogs(userId, 14);
+  const { unit: weightUnit } = useUnitPreference();
   const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
   const { logs: sleepLogs, logSleep } = useSleepLogs(userId, daysAgoKey(7));
   const { todayMl: waterMl, logToday: logWater } = useWaterLogs(userId);
@@ -280,12 +281,12 @@ export default function Dashboard({ userId }: { userId: string }) {
           <DashCard title="Bodyweight" badge={bwEntries.length > 0 ? undefined : 'No log'}>
             {bwEntries.length > 0 && !loggingWeight ? (
               <Text className="text-white text-lg font-bold">
-                {kgToLbs(bwEntries[0].weight_kg).toFixed(1)}{' '}
-                <Text className="text-xs text-gray-500 font-normal">{WEIGHT_UNIT}</Text>
+                {formatWeightKg(bwEntries[0].weight_kg, weightUnit).value.toFixed(1)}{' '}
+                <Text className="text-xs text-gray-500 font-normal">{weightUnit}</Text>
               </Text>
             ) : null}
             {loggingWeight ? (
-              <QuickLogWeight logToday={logToday} onDone={() => setLoggingWeight(false)} />
+              <QuickLogWeight logToday={logToday} unit={weightUnit} onDone={() => setLoggingWeight(false)} />
             ) : (
               <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingWeight(true)}>
                 Log Weight
@@ -391,8 +392,8 @@ export default function Dashboard({ userId }: { userId: string }) {
 
       {trend.direction === 'up' || trend.direction === 'down' ? (
         <Text className="text-xs text-gray-500 text-center">
-          Bodyweight {trend.direction === 'up' ? 'up' : 'down'} {Math.abs(trend.deltaKg ?? 0)} kg
-          since your last entry
+          Bodyweight {trend.direction === 'up' ? 'up' : 'down'}{' '}
+          {formatWeightKg(Math.abs(trend.deltaKg ?? 0), weightUnit).value} {weightUnit} since your last entry
         </Text>
       ) : null}
     </ScrollView>

@@ -2,6 +2,7 @@ import '../global.css';
 
 import { ActivityIndicator, Pressable, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useTraceUser } from '../src/hooks/useTraceUser';
 import { useOutboxSync } from '../src/hooks/useOutboxSync';
@@ -10,6 +11,32 @@ import { supabase } from '../src/lib/supabase';
 import AuthScreen from '../src/components/auth/AuthScreen';
 import ChooseCoachScreen from '../src/components/auth/ChooseCoachScreen';
 import { TraceUserProvider } from '../src/context/TraceUserContext';
+
+// Google sign-in is account-level, shared across this Supabase project —
+// it has no concept of "which app" a user came from. A coach who signs
+// into this trainee app with the same Google account they use on the
+// dashboard resolves to their existing coach profile (matched by email),
+// not a new trainee account. Without this screen, that profile fell
+// straight through into the full trainee UI: workout/nutrition/bodyweight
+// writes would silently succeed under the coach's own user_id (polluting
+// their coach account with trainee-style data), while Form Checks and
+// Check-ins would fail outright (their BEFORE INSERT triggers require
+// profiles.coach_id, which is null for a coach). Block it here instead,
+// before any of that can happen.
+function CoachAccountBlocked() {
+  return (
+    <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
+      <Ionicons name="business-outline" size={32} color="#6B7280" />
+      <Text className="text-xl font-bold text-white mt-4 mb-2 text-center">This is a coach account</Text>
+      <Text className="text-sm text-gray-400 text-center mb-6">
+        TRACE for trainees doesn't support coach accounts. Use the coach dashboard instead.
+      </Text>
+      <Pressable onPress={() => void supabase.auth.signOut()}>
+        <Text className="text-primary font-medium">Sign out</Text>
+      </Pressable>
+    </SafeAreaView>
+  );
+}
 
 // Auth gate lives here, not in app/(tabs)/_layout.tsx: bodyweight/settings,
 // leaderboards/*, workouts/*, nutrition/add-meal are Stack.Screen siblings
@@ -51,10 +78,13 @@ function Gate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (profile.role === 'coach') {
+    return <CoachAccountBlocked />;
+  }
+
   // Blocks everything below this point — no tabs, no dashboard reads — until
-  // the trainee has a coach. Only applies to trainees; a coach account
-  // logging in here (shouldn't normally happen) isn't gated by this.
-  if (profile.role === 'trainee' && !profile.coach_id) {
+  // the trainee has a coach.
+  if (!profile.coach_id) {
     return <ChooseCoachScreen onLinked={() => void traceUser.refetchProfile()} />;
   }
 

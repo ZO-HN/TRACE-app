@@ -1,3 +1,6 @@
+-- APPLIED 2026-08-15 as 20260815030000_program_sharing.sql in the
+-- coach-dashboard repo. Kept here for reference only; do not re-apply.
+--
 -- Program sharing — generate a link, others join and get their own
 -- independent copy. Builds on 010_workout_programs.sql.
 --

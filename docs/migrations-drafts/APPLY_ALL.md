@@ -360,7 +360,11 @@ grant execute on function public.list_coach_roster() to authenticated;
 
 ---
 
-## 010 — Periodized Training Programs
+## 010 — Periodized Training Programs — APPLIED (already live)
+
+Applied independently by the coach-dashboard repo as
+`20260814000000_periodized_training_programs.sql`, byte-identical to the
+SQL below. Kept here for reference only — do not re-apply.
 
 Backs: `app/programs/` (program builder + progress tracking). Trainee-owned
 (`owner_id`), matching `workout_folders`' ownership model. Deliberately a
@@ -441,52 +445,27 @@ create policy "program_enrollments_owner_all"
 
 ---
 
-## 011 — Steps Tracking
+## 011 — Steps Tracking — SUPERSEDED, do not apply
 
-Backs: the Dashboard's Steps card, currently session-local only (resets on
-remount). Mirrors `bodyweight_logs` exactly — same one-row-per-day shape,
-same owner + coach-view RLS split.
-
-```sql
-create table if not exists public.steps_logs (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  recorded_date date not null,
-  steps int not null check (steps >= 0 and steps <= 200000),
-  created_at timestamptz not null default now(),
-  unique (user_id, recorded_date)
-);
-
-alter table public.steps_logs enable row level security;
-
-create policy "steps_logs_owner_all"
-  on public.steps_logs
-  for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-create policy "steps_logs_coach_view"
-  on public.steps_logs
-  for select
-  using (
-    exists (
-      select 1 from public.profiles client
-      where client.id = steps_logs.user_id
-        and client.coach_id = auth.uid()
-    )
-  );
-
-create index if not exists idx_steps_logs_user_date on public.steps_logs(user_id, recorded_date desc);
-```
+Was drafted as a new `steps_logs` table. The coach-dashboard repo
+independently shipped a different, already-*applied* approach in
+`20260815000000_steps_and_cardio_tracking.sql` — a `step_count` column on
+the existing `wearable_biometrics` table instead of a new table. TRACE-client's
+`useStepsLogs.ts` now targets that live column directly. This entry is kept
+only so the number `011` isn't silently reused for something else later;
+the SQL that was here has been deleted.
 
 ---
 
-## 012 — Program Sharing
+## 012 — Program Sharing — APPLIED 2026-08-15
 
-Backs: share-by-link + join on `/programs`. Builds on `010`. Scoped to
-authenticated users, not truly public — see the SQL file's header comment
-for why, and for a known limitation around joined programs referencing
-templates the joiner may not have read access to.
+Backs: share-by-link + join on `/programs`. Builds on `010` (also already
+applied — see the coach-dashboard repo's
+`20260814000000_periodized_training_programs.sql`, byte-identical to what
+was drafted here as `010`). Scoped to authenticated users, not truly
+public — see the SQL file's header comment for why, and for a known
+limitation around joined programs referencing templates the joiner may not
+have read access to.
 
 ```sql
 alter table public.workout_programs

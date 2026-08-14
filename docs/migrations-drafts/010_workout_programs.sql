@@ -1,3 +1,7 @@
+-- APPLIED (already live) — the coach-dashboard repo pushed this same SQL
+-- independently as 20260814000000_periodized_training_programs.sql. Kept
+-- here for reference only; do not re-apply.
+--
 -- Periodized training programs — Program contains weeks, each week has up
 -- to 7 days, each day either assigns an existing workout_templates row or
 -- is a rest day (workout_template_id null). Deliberately a 2-level model

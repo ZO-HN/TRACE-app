@@ -1,6 +1,6 @@
 import '../global.css';
 
-import { ActivityIndicator, Pressable, Text } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
@@ -49,7 +49,7 @@ function Gate({ children }: { children: React.ReactNode }) {
 
   // Keep the offline outbox flushing to Supabase whenever connectivity
   // returns. Mounted unconditionally so it hydrates even while signed out.
-  useOutboxSync();
+  const sync = useOutboxSync(profile?.role === 'trainee' ? user?.id ?? null : null);
   usePushNotifications(profile?.id ?? null);
 
   if (isLoading) {
@@ -88,7 +88,16 @@ function Gate({ children }: { children: React.ReactNode }) {
     return <ChooseCoachScreen onLinked={() => void traceUser.refetchProfile()} />;
   }
 
-  return <TraceUserProvider value={traceUser}>{children}</TraceUserProvider>;
+  return <TraceUserProvider value={traceUser}>
+    <View className="flex-1 bg-background">
+      {(sync.pendingCount > 0 || sync.error) && <SafeAreaView edges={['top']} className="bg-surface px-4 py-2">
+        <Text className="text-sm text-white">{sync.isSyncing ? 'Syncing saved logs…' : `${sync.pendingCount} saved logs waiting to sync`}</Text>
+        {(sync.error || sync.failedCount > 0) && <Text className="text-xs text-red-400">{sync.error ?? 'Some logs could not sync. Your data is still saved on this device.'}</Text>}
+        <Pressable onPress={sync.retry} disabled={sync.isSyncing}><Text className="text-primary">Retry sync</Text></Pressable>
+      </SafeAreaView>}
+      {children}
+    </View>
+  </TraceUserProvider>;
 }
 
 export default function RootLayout() {

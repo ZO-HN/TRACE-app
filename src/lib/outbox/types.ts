@@ -1,6 +1,7 @@
 // Outbox types for offline session logging.
 // See docs/specs/offline-sync-outbox.md.
 
+import type { Database } from '../database.types';
 import type { NutritionLogInsert } from '../nutrition/types';
 
 export type { NutritionLogInsert };
@@ -12,49 +13,25 @@ export type { NutritionLogInsert };
  * (weight_kg * (1 + reps / 30)) and must NEVER appear in a write payload.
  * It is intentionally absent from this type.
  */
-export interface SetLogInsert {
-  id: string; // client-generated UUID — also the outbox idempotency key
-  session_id: string;
-  exercise_id: string;
-  set_number: number;
-  weight_kg: number;
-  reps: number;
-  rpe?: number | null;
-  is_completed?: boolean;
-  form_video_s3_key?: string | null;
-  /** True for warm-up sets — excluded from muscle-volume analytics.
-   * Maps to docs/migrations-drafts/008_tracked_parity_tier_a.sql. */
-  is_warmup?: boolean;
-  /** True when the set was taken to failure short of the planned reps. */
-  is_failure?: boolean;
-  /** 'duration' for isometric holds (planks, wall-sits) — reps is unused,
-   * duration_seconds carries the hold time instead. */
-  set_type?: 'reps' | 'duration';
-  duration_seconds?: number | null;
-}
+export type SetLogInsert = Pick<Database['public']['Tables']['set_logs']['Insert'],
+  'session_id' | 'exercise_id' | 'set_number' | 'weight_kg' | 'reps' | 'rpe' |
+  'is_completed' | 'form_video_s3_key' | 'is_warmup' | 'is_failure' | 'duration_seconds'
+> & { id: string; set_type?: 'reps' | 'duration' };
 
-/**
- * Insert payload for public.workout_sessions.
- *
- * RLS on workout_sessions allows owners INSERT + SELECT only (no UPDATE),
- * so sessions are insert-once: never re-flush after a successful sync.
- */
-export interface WorkoutSessionInsert {
-  id: string; // client-generated UUID
-  user_id: string;
-  template_id?: string | null;
-  session_name: string;
-  completed_at?: string; // ISO; DB defaults to NOW() if omitted
-  duration_seconds: number;
-  rpe_average?: number | null;
-  compliance_score?: number | null;
-}
+/** Session snapshots are delivered through the owner-scoped sync RPC. */
+export type WorkoutSessionInsert = Pick<Database['public']['Tables']['workout_sessions']['Insert'],
+  'user_id' | 'template_id' | 'session_name' | 'completed_at' | 'duration_seconds' |
+  'rpe_average' | 'compliance_score'
+> & { id: string };
 
 export type OutboxStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
 export type OutboxTable = 'workout_sessions' | 'set_logs' | 'nutrition_logs';
 
 export interface OutboxItem {
+  /** Explicit owner for new entries; legacy sets are resolved via their parent. */
+  owner_id?: string;
+  revision?: number;
   id: string; // mirrors payload.id — the idempotency key
   /** Target table. Items persisted before this field existed are set_logs. */
   table?: OutboxTable;

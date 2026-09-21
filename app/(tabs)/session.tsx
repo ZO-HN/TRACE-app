@@ -9,5 +9,5 @@ import GymLogger from '../../src/components/GymLogger';
 export default function SessionScreen() {
   const { profile } = useTraceUserContext();
   const { templateId } = useLocalSearchParams<{ templateId?: string }>();
-  return <GymLogger userId={profile!.id} overrideTemplateId={templateId ?? null} />;
+  return <GymLogger key={`${profile!.id}:${templateId ?? 'assigned'}`} userId={profile!.id} overrideTemplateId={templateId ?? null} />;
 }

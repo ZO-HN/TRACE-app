@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- DRAFT — not applied. Hand off to the coach-dashboard repo's
 -- supabase/migrations/. Largest of the drafted migrations in this batch
 -- (four new tables) — give this the most review lead time.

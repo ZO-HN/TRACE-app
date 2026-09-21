@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- DRAFT — not applied. Hand off to the coach-dashboard repo's
 -- supabase/migrations/. Client code (useCardioExercises/useCardioEntries)
 -- degrades gracefully (Postgres 42P01) if this hasn't landed yet.

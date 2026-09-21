@@ -1,90 +1,75 @@
 import { describe, expect, it, vi } from 'vitest';
-import { backoffMs, flushOutbox, type FlushDeps } from '../../src/lib/outbox/sync';
-import type { OutboxItem, OutboxStatus } from '../../src/lib/outbox/types';
+import { backoffMs, flushOutbox, MAX_ATTEMPTS, retryAt, type FlushDeps } from '../../src/lib/outbox/sync';
+import { forUser } from '../../src/lib/outbox/ownership';
+import type { OutboxItem } from '../../src/lib/outbox/types';
 
-type Upsert = (
-  values: unknown,
-  options?: { onConflict?: string },
-) => Promise<{ error: { message: string } | null }>;
-
-const mk = (
-  id: string,
-  status: OutboxStatus = 'pending',
-  attempts = 0,
-): OutboxItem => ({
-  id,
-  status,
-  attempts,
-  updated_at: '2026-01-01T00:00:00.000Z',
-  payload: {
-    id,
-    session_id: 'session-1',
-    exercise_id: 'exercise-1',
-    set_number: 1,
-    weight_kg: 100,
-    reps: 5,
-  },
-});
-
-function makeDeps(items: OutboxItem[], upsert: Upsert) {
-  const store = new Map(items.map((i) => [i.id, i] as const));
-  const deps: FlushDeps = {
-    supabase: { from: () => ({ upsert }) },
-    getItems: async () => [...store.values()],
-    saveItem: async (item) => {
-      store.set(item.id, item);
-    },
-    now: () => '2026-01-01T00:00:00.000Z',
-  };
-  return { store, deps };
+const now = '2026-01-01T00:00:00.000Z';
+const session = (owner = 'a'): OutboxItem => ({ id: `session-${owner}`, owner_id: owner, table: 'workout_sessions', status: 'pending', attempts: 0, updated_at: now,
+  payload: { id: `session-${owner}`, user_id: owner, session_name: 'Workout', duration_seconds: 120 } });
+const set = (owner = 'a'): OutboxItem => ({ id: `set-${owner}`, owner_id: owner, table: 'set_logs', status: 'pending', attempts: 0, updated_at: now,
+  payload: { id: `set-${owner}`, session_id: `session-${owner}`, exercise_id: 'exercise', set_number: 1, weight_kg: 60, reps: 5 } });
+function setup(items: OutboxItem[]) {
+  const store = new Map(items.map((i) => [i.id, i]));
+  const upsert = vi.fn<(...args: unknown[]) => Promise<{error: {message: string} | null}>>().mockResolvedValue({error:null});
+  const deps: FlushDeps = { userId: 'a', supabase: {from: () => ({upsert})}, getItems: async () => [...store.values()], saveItem: async (i) => {store.set(i.id,i);}, now: () => now };
+  return { store, upsert, deps };
 }
 
-describe('flushOutbox', () => {
-  it('syncs pending items and marks them synced', async () => {
-    const upsert = vi.fn<Upsert>().mockResolvedValue({ error: null });
-    const { store, deps } = makeDeps([mk('a'), mk('b')], upsert);
-
-    const result = await flushOutbox(deps);
-
-    expect(result.synced).toBe(2);
-    expect(result.remaining).toBe(0);
-    expect(store.get('a')?.status).toBe('synced');
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'a' }),
-      { onConflict: 'id' },
-    );
+describe('durable authenticated delivery', () => {
+  it('sends the parent before its sets and skips acknowledged records', async () => {
+    const {store,upsert,deps} = setup([set(),session()]);
+    expect((await flushOutbox(deps)).synced).toBe(2);
+    expect(upsert.mock.calls.map(([p]) => (p as {id:string}).id)).toEqual(['session-a','set-a']);
+    expect(store.get('set-a')?.status).toBe('synced');
+    expect((await flushOutbox(deps)).synced).toBe(0);
   });
-
-  it('is a no-op for already-synced items (idempotent)', async () => {
-    const upsert = vi.fn<Upsert>().mockResolvedValue({ error: null });
-    const { deps } = makeDeps([mk('a', 'synced')], upsert);
-
-    const result = await flushOutbox(deps);
-
+  it('defers children without consuming retries when a parent fails', async () => {
+    const {store,upsert,deps} = setup([set(),session()]);
+    upsert.mockResolvedValue({error:{message:'offline'}});
+    expect(await flushOutbox(deps)).toEqual({synced:0,failed:1,remaining:2});
+    expect(store.get('set-a')?.attempts).toBe(0);
+    expect(upsert).toHaveBeenCalledTimes(1);
+  });
+  it('contains thrown network failures and schedules bounded retries', async () => {
+    const {store,upsert,deps} = setup([session()]);
+    upsert.mockRejectedValue(new Error('connection lost'));
+    await flushOutbox(deps);
+    expect(store.get('session-a')?.status).toBe('failed');
+    await flushOutbox(deps);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    deps.now = () => '2026-01-01T00:00:01.000Z';
+    await flushOutbox(deps);
+    expect(upsert).toHaveBeenCalledTimes(2);
+    store.set('session-a',{...session(),status:'failed',attempts:MAX_ATTEMPTS});
+    deps.now = () => '2026-01-02T00:00:00.000Z';
+    await flushOutbox(deps);
+    expect(upsert).toHaveBeenCalledTimes(2);
+  });
+  it('never sends another account or ownerless legacy orphan', async () => {
+    const orphan = {...set(), id:'orphan', owner_id:undefined, payload:{...set().payload, session_id:'missing'}} as OutboxItem;
+    const {upsert,deps} = setup([session('b'),set('b'),orphan,session()]);
+    await flushOutbox(deps);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0][0]).toEqual(session().payload);
+  });
+  it('resolves legacy set ownership from a durable parent', () => {
+    const legacy = {...set(),owner_id:undefined};
+    expect(forUser([session(),legacy], 'a')).toHaveLength(2);
+    expect(forUser([session(),legacy], 'b')).toHaveLength(0);
+  });
+  it('stops before further requests after account switching', async () => {
+    const {upsert,deps} = setup([session(),set()]);
+    deps.isCurrentUser = vi.fn().mockResolvedValueOnce(true).mockResolvedValue(false);
+    await flushOutbox(deps);
+    expect(upsert).toHaveBeenCalledTimes(1);
+  });
+  it('defers a child whose parent has exhausted retries', async () => {
+    const {upsert,deps} = setup([{...session(),status:'failed',attempts:MAX_ATTEMPTS},set()]);
+    expect((await flushOutbox(deps)).remaining).toBe(2);
     expect(upsert).not.toHaveBeenCalled();
-    expect(result.synced).toBe(0);
-  });
-
-  it('marks failed and increments attempts on error, never dropping the item', async () => {
-    const upsert = vi.fn<Upsert>().mockResolvedValue({ error: { message: 'network down' } });
-    const { store, deps } = makeDeps([mk('a', 'pending', 2)], upsert);
-
-    const result = await flushOutbox(deps);
-
-    expect(result.failed).toBe(1);
-    expect(result.remaining).toBe(1);
-    const item = store.get('a');
-    expect(item?.status).toBe('failed');
-    expect(item?.attempts).toBe(3);
-    expect(item?.last_error).toBe('network down');
   });
 });
-
-describe('backoffMs', () => {
-  it('grows exponentially from 1s and caps at 30s', () => {
-    expect(backoffMs(0)).toBe(1000);
-    expect(backoffMs(1)).toBe(2000);
-    expect(backoffMs(2)).toBe(4000);
-    expect(backoffMs(20)).toBe(30000);
-  });
+it('backoff grows and caps at thirty seconds', () => {
+  expect([0,1,2,20].map(backoffMs)).toEqual([1000,2000,4000,30000]);
+  expect(retryAt({...session(),status:'synced'})).toBe(Infinity);
 });

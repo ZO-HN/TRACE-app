@@ -18,12 +18,16 @@ export interface UseCardioHistory {
   entries: CardioEntry[];
   isLoading: boolean;
   isSupported: boolean;
+  error: string | null;
+  refresh: () => void;
 }
 
 export function useCardioHistory(userId: string, sinceDate: string): UseCardioHistory {
   const [entries, setEntries] = useState<CardioEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSupported, setIsSupported] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -35,6 +39,7 @@ export function useCardioHistory(userId: string, sinceDate: string): UseCardioHi
         .gte('entry_date', sinceDate);
 
       if (!isMounted) return;
+      setError(error?.message ?? null);
       if (error) {
         setIsSupported(error.code !== '42P01');
         setEntries([]);
@@ -54,7 +59,7 @@ export function useCardioHistory(userId: string, sinceDate: string): UseCardioHi
     return () => {
       isMounted = false;
     };
-  }, [userId, sinceDate]);
+  }, [userId, sinceDate, revision]);
 
-  return { entries, isLoading, isSupported };
+  return { entries, isLoading, isSupported, error, refresh: () => setRevision((value) => value + 1) };
 }

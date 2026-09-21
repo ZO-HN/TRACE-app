@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- DRAFT — not applied. Hand off to the coach-dashboard repo's
 -- supabase/migrations/ for review and application; this client repo has no
 -- migrations folder of its own (see AGENTS.md). Until this is applied,

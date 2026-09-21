@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- 008 — Tracked-parity Tier A
 --
 -- Backs: warm-up set exclusion from muscle volume, set failure marking,

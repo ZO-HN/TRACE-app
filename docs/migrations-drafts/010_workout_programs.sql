@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- APPLIED (already live) — the coach-dashboard repo pushed this same SQL
 -- independently as 20260814000000_periodized_training_programs.sql. Kept
 -- here for reference only; do not re-apply.

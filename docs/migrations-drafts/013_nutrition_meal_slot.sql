@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- Real meal-slot assignment for nutrition_logs, replacing the client-side
 -- chronological-order approximation documented in
 -- src/lib/nutrition/mealSlots.ts. Nullable and additive — existing rows

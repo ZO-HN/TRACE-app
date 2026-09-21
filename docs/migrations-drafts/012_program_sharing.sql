@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- APPLIED 2026-08-15 as 20260815030000_program_sharing.sql in the
 -- coach-dashboard repo. Kept here for reference only; do not re-apply.
 --

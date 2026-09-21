@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- DRAFT — not applied. Hand off to the coach-dashboard repo's
 -- supabase/migrations/. Backs the Social tab's Connected/Discover lists.
 --

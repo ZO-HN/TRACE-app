@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- DRAFT — not applied. Hand off to the coach-dashboard repo's
 -- supabase/migrations/. Touches workout_templates, a table that repo owns —
 -- review carefully before applying (see caveat below).

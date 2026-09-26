@@ -7,12 +7,11 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { AnimatePresence, MotiView } from 'moti';
+import { forUser } from '../lib/outbox/ownership';
 import { useOutboxStore } from '../lib/outbox/outboxStore';
 import { isValidSetInput, toSetLogInsert } from '../lib/outbox/mapSetLog';
 import { predictNextSet, suggestNextSet } from '../lib/workout/suggestNextSet';
 import { lbsToKg, kgToLbs } from '../lib/units';
-import { useExerciseCatalog } from '../hooks/useExerciseCatalog';
-import { lookupExerciseId } from '../lib/workout/catalog';
 import { createSessionDraft, sessionInsertFrom } from '../lib/workout/session';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
 import { useLastSetsForExercises } from '../hooks/useLastSetsForExercises';
@@ -50,27 +49,6 @@ const calculateE1RM = (weightStr: string, repsStr: string): string => {
   return Math.round(e1RM).toString();
 };
 
-// Fallback content shown until a coach-assigned template loads (or if none
-// is assigned yet) — same shape as the real thing so nothing special-cases it.
-const initialWorkout: Exercise[] = [
-  {
-    id: 'e1',
-    name: 'Barbell Back Squat',
-    sets: [
-      { id: 's1-1', weight: '135', reps: '10', rpe: '7', completed: false },
-      { id: 's1-2', weight: '225', reps: '8', rpe: '8', completed: false },
-    ],
-  },
-  {
-    id: 'e2',
-    name: 'Romanian Deadlift',
-    sets: [
-      { id: 's2-1', weight: '185', reps: '10', rpe: '7', completed: false },
-      { id: 's2-2', weight: '205', reps: '8', rpe: '8', completed: false },
-    ],
-  },
-];
-
 const REST_SECONDS_DEFAULT = 90;
 
 function formatTime(totalSeconds: number): string {
@@ -91,12 +69,11 @@ export default function GymLogger({
    * of the usual assigned/most-recent-PRIVATE auto-resolution. */
   overrideTemplateId?: string | null;
 }) {
-  const [exercises, setExercises] = useState<Exercise[]>(initialWorkout);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
 
   // Real workout content (coach-assigned template, or overrideTemplateId
-  // when the trainee explicitly picked one). Falls back to the built-in
-  // placeholder when nothing loads (offline / not yet assigned).
-  const { templateId, templateName, exercises: templateExercises } = useAssignedWorkout(
+  // when the trainee explicitly picked one). Only real downloaded content is loggable.
+  const { templateId, templateName, exercises: templateExercises, status, error: workoutError, retry } = useAssignedWorkout(
     userId,
     overrideTemplateId,
   );
@@ -106,7 +83,7 @@ export default function GymLogger({
   const enqueueSetLog = useOutboxStore((s) => s.enqueueSetLog);
   const ensureSessionQueued = useOutboxStore((s) => s.ensureSessionQueued);
   const pendingCount = useOutboxStore(
-    (s) => s.items.filter((i) => i.status !== 'synced').length,
+    (s) => forUser(s.items, userId).filter((i) => i.status !== 'synced').length,
   );
 
   // Client-first session: created with a client UUID so offline set_logs can
@@ -115,29 +92,12 @@ export default function GymLogger({
     createSessionDraft(userId, 'Current Workout', Date.now(), randomUUID()),
   );
 
-  // Real exercise ids from the DB catalog (matched by name). Until the
-  // catalog loads (e.g. offline cold start), fall back to placeholder ids —
-  // those items retry and only succeed once real ids exist.
-  const { byName: catalogByName } = useExerciseCatalog();
-  const placeholderIds = useMemo(
-    () => Object.fromEntries(initialWorkout.map((e) => [e.id, randomUUID()])) as Record<
-      string,
-      string
-    >,
-    [],
-  );
-
-  const resolveExerciseId = (exercise: Exercise) =>
-    lookupExerciseId(catalogByName, exercise.name) ?? placeholderIds[exercise.id] ?? exercise.id;
-
-  // Auto-regulate: last logged set per exercise (this session or a prior
-  // one) plus a local calibration multiplier from thumbs up/down feedback —
-  // together drive predictNextSet's weight/rep suggestion below.
-  const exerciseIds = useMemo(
-    () => exercises.map(resolveExerciseId),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [exercises, catalogByName, placeholderIds],
-  );
+  const resolveExerciseId = (exercise: Exercise) => exercise.id;
+  const exerciseIds = useMemo(() => exercises.map((e) => e.id), [exercises]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saving = useRef(false);
+  const logIds = useRef(new Map<string, string>());
+  const loadedTemplate = useRef<string | null>(null);
   const lastSets = useLastSetsForExercises(userId, exerciseIds);
   const calibration = useSetCalibration();
 
@@ -191,6 +151,14 @@ export default function GymLogger({
   // Adopt template content once it loads — but never clobber logged work.
   useEffect(() => {
     if (!templateExercises) return;
+    if (loadedTemplate.current !== templateId) {
+      loadedTemplate.current = templateId;
+      sessionRef.current = createSessionDraft(userId, templateName ?? 'Workout', Date.now(), randomUUID());
+      logIds.current.clear();
+      setExercises(templateExercises as Exercise[]);
+      setVideoKeys({});
+      return;
+    }
     setExercises((current) => {
       const hasLoggedWork = current.some((e) => e.sets.some((s) => s.completed));
       return hasLoggedWork ? current : (templateExercises as Exercise[]);
@@ -198,7 +166,7 @@ export default function GymLogger({
     if (templateName) {
       sessionRef.current = { ...sessionRef.current, sessionName: templateName };
     }
-  }, [templateExercises, templateName]);
+  }, [templateExercises, templateName, templateId, userId]);
 
   const startRestTimer = (seconds: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -230,23 +198,27 @@ export default function GymLogger({
     };
   }, []);
 
-  const updateSet = (
+  const updateSet = async (
     eIndex: number,
     sIndex: number,
     field: keyof SetData,
     value: string | boolean,
   ) => {
+    if (saving.current || !templateId || templateId !== loadedTemplate.current || (status !== 'ready' && status !== 'cached')) return;
+    // A completed set is immutable in this logger; do not create another UUID
+    // by toggling it off and on after it has already synced.
+    if (exercises[eIndex].sets[sIndex].completed) return;
     const updated = exercises.map((e) => ({ ...e, sets: [...e.sets] }));
     const targetSet = { ...updated[eIndex].sets[sIndex], [field]: value };
     updated[eIndex].sets[sIndex] = targetSet;
 
     if (field === 'completed' && value === true) {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      startRestTimer(REST_SECONDS_DEFAULT);
 
       const exercise = updated[eIndex];
+      const logKey = `${eIndex}:${targetSet.id}`;
+      if (!logIds.current.has(logKey)) logIds.current.set(logKey, randomUUID());
       const input = {
-        id: randomUUID(),
+        id: logIds.current.get(logKey)!,
         sessionId: sessionRef.current.id,
         exerciseId: resolveExerciseId(exercise),
         setNumber: sIndex + 1,
@@ -259,12 +231,19 @@ export default function GymLogger({
         setType: exercise.isIsometric ? ('duration' as const) : ('reps' as const),
         durationSeconds: exercise.isIsometric ? targetSet.reps : null,
       };
-      if (isValidSetInput(input)) {
-        void ensureSessionQueued(
-          sessionInsertFrom(sessionRef.current, Date.now(), templateId),
-        );
-        void enqueueSetLog(toSetLogInsert(input));
-      }
+      if (!isValidSetInput(input)) { setSaveError('Enter a valid weight, reps or duration before saving.'); return; }
+      saving.current = true;
+      try {
+        await ensureSessionQueued(sessionInsertFrom(sessionRef.current, Date.now(), templateId));
+        await enqueueSetLog(toSetLogInsert(input), userId);
+        setSaveError(null);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        startRestTimer(REST_SECONDS_DEFAULT);
+      } catch {
+        setSaveError('Could not save this set on your device. Please retry.');
+        return;
+      } finally { saving.current = false; }
+
     }
 
     setExercises(updated);
@@ -298,7 +277,12 @@ export default function GymLogger({
           </View>
         </View>
 
-        {exercises.map((exercise, eIndex) => (
+        {status === 'loading' && <Text className="text-gray-400">Loading workout…</Text>}
+        {status === 'unassigned' && <Text className="text-gray-400">No workout assigned. Ask your coach to assign one, or choose a saved workout.</Text>}
+        {status === 'cached' && <Text className="text-gray-400">Offline · using your downloaded workout</Text>}
+        {workoutError && <View><Text className="text-red-400">{workoutError}</Text><Pressable onPress={retry}><Text className="text-primary">Retry loading workout</Text></Pressable></View>}
+        {saveError && <Text className="text-red-400">{saveError}</Text>}
+        {(status === 'ready' || status === 'cached') && exercises.map((exercise, eIndex) => (
           <FadeInView key={exercise.id} delay={eIndex * 60}>
             <Card className="overflow-hidden">
               <View className="bg-border/30 px-4 py-3 border-b border-border flex-row items-center justify-between gap-2">

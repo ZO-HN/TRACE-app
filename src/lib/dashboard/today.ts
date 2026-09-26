@@ -1,6 +1,8 @@
 // Pure helpers for the dashboard's date strip and today's nutrition totals.
 // Framework-free so they're testable without rendering anything.
 
+import { localDate } from '../localDate';
+
 export interface DateStripDay {
   date: string; // YYYY-MM-DD
   day: number;
@@ -9,12 +11,12 @@ export interface DateStripDay {
 
 /** `daysBefore`/`daysAfter` around `today` (both inclusive of today). */
 export function buildDateStrip(today: Date, daysBefore = 3, daysAfter = 3): DateStripDay[] {
-  const todayKey = today.toISOString().slice(0, 10);
+  const todayKey = localDate(today);
   const days: DateStripDay[] = [];
   for (let offset = -daysBefore; offset <= daysAfter; offset++) {
     const d = new Date(today);
     d.setDate(d.getDate() + offset);
-    const key = d.toISOString().slice(0, 10);
+    const key = localDate(d);
     days.push({ date: key, day: d.getDate(), isToday: key === todayKey });
   }
   return days;
@@ -38,8 +40,8 @@ export function sumTodayMacros<
     fat_g: number | null;
   },
 >(entries: T[], today: Date): TodayMacros {
-  const todayKey = today.toISOString().slice(0, 10);
-  const todays = entries.filter((e) => e.logged_at.slice(0, 10) === todayKey);
+  const todayKey = localDate(today);
+  const todays = entries.filter((e) => localDate(new Date(e.logged_at)) === todayKey);
 
   return {
     calories: todays.reduce((sum, e) => sum + (e.calories ?? 0), 0),

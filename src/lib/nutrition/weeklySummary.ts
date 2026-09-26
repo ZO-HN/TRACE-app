@@ -2,6 +2,8 @@
 // prior week, for a comparative view (Tracked's "weekly nutrition
 // summaries with comparative analysis"). Pure and framework-free.
 
+import { localDate } from '../localDate';
+
 export interface NutritionSummaryEntry {
   logged_at: string;
   calories: number | null;
@@ -41,7 +43,7 @@ function averageByDay(entries: NutritionSummaryEntry[], from: Date, to: Date): W
   for (const e of entries) {
     const d = new Date(e.logged_at);
     if (d < from || d >= to) continue;
-    const key = d.toISOString().slice(0, 10);
+    const key = localDate(d);
     const cur = byDay.get(key) ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
     cur.calories += e.calories ?? 0;
     cur.protein_g += e.protein_g ?? 0;

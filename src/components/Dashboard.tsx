@@ -14,6 +14,7 @@ import { latestTrend } from '../lib/bodyweight/trend';
 import { isValidBodyweightLbs } from '../lib/bodyweight/mapBodyweight';
 import { durationHours, formatHours, lastNight } from '../lib/sleep/summary';
 import { formatWeightKg, kgToLbs } from '../lib/units';
+import { localDate } from '../lib/localDate';
 import { useUnitPreference } from '../hooks/useUnitPreference';
 import Card from './ui/Card';
 import Button from './ui/Button';
@@ -22,7 +23,7 @@ import LogSleepSheet from './sleep/LogSleepSheet';
 function daysAgoKey(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  return localDate(d);
 }
 
 function Badge({ children }: { children: string }) {
@@ -369,15 +370,14 @@ export default function Dashboard({ userId }: { userId: string }) {
       <LogSleepSheet
         visible={sleepSheetOpen}
         onClose={() => setSleepSheetOpen(false)}
-        onSave={async (bedtime, wakeTime, quality) => {
-          await logSleep(
-            wakeTime.toISOString().slice(0, 10),
+        onSave={(bedtime, wakeTime, quality) =>
+          logSleep(
+            localDate(wakeTime),
             bedtime.toISOString(),
             wakeTime.toISOString(),
             quality,
-          );
-          setSleepSheetOpen(false);
-        }}
+          )
+        }
       />
 
       <DashCard title="Physique">

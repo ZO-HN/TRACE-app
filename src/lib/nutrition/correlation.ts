@@ -3,6 +3,8 @@
 // training "side by side on the same timeline"; TRACE had them as
 // separate dashboard cards with no correlation view at all.
 
+import { localDate } from '../localDate';
+
 export interface DailyCorrelationPoint {
   date: string; // YYYY-MM-DD
   calories: number;
@@ -15,7 +17,7 @@ function dateKeysBack(days: number, today: Date): string[] {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    keys.push(d.toISOString().slice(0, 10));
+    keys.push(localDate(d));
   }
   return keys;
 }
@@ -29,11 +31,11 @@ export function buildCorrelationSeries(
 ): DailyCorrelationPoint[] {
   const caloriesByDate = new Map<string, number>();
   for (const entry of nutritionEntries) {
-    const key = entry.logged_at.slice(0, 10);
+    const key = localDate(new Date(entry.logged_at));
     caloriesByDate.set(key, (caloriesByDate.get(key) ?? 0) + (entry.calories ?? 0));
   }
 
-  const trainedDates = new Set(trainingDates.map((d) => d.slice(0, 10)));
+  const trainedDates = new Set(trainingDates.map((d) => localDate(new Date(d))));
   const bodyweightByDate = new Map(bodyweightEntries.map((e) => [e.recorded_date, e.weight_kg]));
 
   return dateKeysBack(days, today).map((date) => ({

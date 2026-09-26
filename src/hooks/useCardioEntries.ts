@@ -26,6 +26,8 @@ function fromRow(row: EntryRow): CardioEntry {
 export interface UseCardioEntries {
   entries: CardioEntry[];
   isLoading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
   addEntry: (durationSeconds: number) => Promise<{ ok: boolean; error?: string }>;
   deleteEntry: (id: string) => Promise<{ ok: boolean; error?: string }>;
 }
@@ -37,6 +39,7 @@ export function useCardioEntries(
 ): UseCardioEntries {
   const [entries, setEntries] = useState<CardioEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
@@ -47,6 +50,7 @@ export function useCardioEntries(
       .eq('entry_date', date)
       .order('created_at', { ascending: true });
 
+    setError(error?.message ?? null);
     setEntries(error ? [] : ((data as EntryRow[]) ?? []).map(fromRow));
     setIsLoading(false);
   }, [userId, exerciseId, date]);
@@ -64,7 +68,7 @@ export function useCardioEntries(
         entry_date: date,
         duration_seconds: durationSeconds,
       });
-      if (error) return { ok: false, error: error.message };
+      if (error) { setError(error.message); return { ok: false, error: error.message }; }
       await refresh();
       return { ok: true };
     },
@@ -74,12 +78,12 @@ export function useCardioEntries(
   const deleteEntry = useCallback(
     async (id: string) => {
       const { error } = await supabase.from('cardio_entries').delete().eq('id', id);
-      if (error) return { ok: false, error: error.message };
+      if (error) { setError(error.message); return { ok: false, error: error.message }; }
       await refresh();
       return { ok: true };
     },
     [refresh],
   );
 
-  return { entries, isLoading, addEntry, deleteEntry };
+  return { entries, isLoading, error, refresh, addEntry, deleteEntry };
 }

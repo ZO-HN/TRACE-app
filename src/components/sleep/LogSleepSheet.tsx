@@ -81,7 +81,11 @@ export default function LogSleepSheet({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSave: (bedtime: Date, wakeTime: Date, quality: 1 | 2 | 3 | 4 | 5) => Promise<void>;
+  onSave: (
+    bedtime: Date,
+    wakeTime: Date,
+    quality: 1 | 2 | 3 | 4 | 5,
+  ) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const now = new Date();
   const eightHoursAgo = new Date(now.getTime() - 8 * 60 * 60 * 1000);
@@ -117,8 +121,18 @@ export default function LogSleepSheet({
 
     setSubmitting(true);
     setError(null);
-    await onSave(bedtime, wake, quality);
-    setSubmitting(false);
+    try {
+      const result = await onSave(bedtime, wake, quality);
+      if (!result.ok) {
+        setError(result.error ?? 'Could not save that sleep entry.');
+        return;
+      }
+      onClose();
+    } catch {
+      setError('Could not save that sleep entry.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

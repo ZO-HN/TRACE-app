@@ -1,3 +1,4 @@
+import { localDate } from '../../src/lib/localDate';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +19,7 @@ import Card from '../../src/components/ui/Card';
 const WEEK_COUNT = 12;
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return localDate();
 }
 
 export default function CardioOverviewScreen() {
@@ -29,7 +30,7 @@ export default function CardioOverviewScreen() {
       .toISOString()
       .slice(0, 10),
   );
-  const { entries, isLoading, isSupported } = useCardioHistory(profile!.id, twelveWeeksAgo);
+  const { entries, isLoading, isSupported, error, refresh } = useCardioHistory(profile!.id, twelveWeeksAgo);
 
   const totalSeconds = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
   const buckets = buildWeeklyBuckets(entries, today, WEEK_COUNT);
@@ -54,6 +55,8 @@ export default function CardioOverviewScreen() {
         <View className="flex-1 items-center justify-center">
           <Text className="text-gray-500">Loading…</Text>
         </View>
+      ) : error ? (
+        <View className="p-6 gap-3"><Text className="text-red-400">Could not load cardio: {error}</Text><Pressable onPress={refresh}><Text className="text-primary">Retry</Text></Pressable></View>
       ) : !isSupported ? (
         <View className="flex-1 items-center justify-center px-6 gap-2">
           <Ionicons name="pulse-outline" size={32} color="#6B7280" />

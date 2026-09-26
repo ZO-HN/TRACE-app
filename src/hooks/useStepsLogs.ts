@@ -8,6 +8,7 @@
 // the same row (hrv_ms, sleep_score, etc.) are left untouched.
 
 import { useCallback, useEffect, useState } from 'react';
+import { localDate } from '../lib/localDate';
 import { supabase } from '../lib/supabase';
 
 export interface StepsEntry {
@@ -67,7 +68,7 @@ export function useStepsLogs(userId: string, limit = 30): UseStepsLogs {
 
   const logToday = useCallback(
     async (steps: number) => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDate();
       const { error: upsertError } = await supabase
         .from('wearable_biometrics')
         .upsert(

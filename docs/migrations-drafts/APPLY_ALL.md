@@ -1,3 +1,9 @@
+# Historical mobile migration record — do not apply
+
+Superseded by TRACE's canonical `supabase/migrations/` and September 2026 mobile-schema reconciliation. The old deployment claims below are historical notes, not verification of the current backend. Use TRACE's provisioning guide and migration history. Do not run the SQL below as an installation script.
+
+---
+
 # TRACE — Supabase Migration History (drafted in this repo)
 
 **Status as of 2026-08-15: everything in this file (001-010, 012) is

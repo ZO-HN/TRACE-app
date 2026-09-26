@@ -1,3 +1,4 @@
+-- HISTORICAL REFERENCE ONLY. Canonical migrations are owned by TRACE; do not apply this draft.
 -- 009 — Tracked-parity Tier B
 --
 -- Backs: progress photos, training-phase "roadmap" goals, notification

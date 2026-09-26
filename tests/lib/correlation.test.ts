@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildCorrelationSeries, compareTrainingVsRestCalories } from '../../src/lib/nutrition/correlation';
 
-const TODAY = new Date('2026-08-15T12:00:00Z');
+const TODAY = new Date(2026, 7, 15, 12);
+
+function localTimestamp(hour: number): string {
+  return new Date(2026, 7, 15, hour).toISOString();
+}
 
 describe('buildCorrelationSeries', () => {
   it('returns exactly `days` points ending today, oldest first', () => {
@@ -12,8 +16,8 @@ describe('buildCorrelationSeries', () => {
   it('sums same-day calories across multiple nutrition entries', () => {
     const series = buildCorrelationSeries(
       [
-        { logged_at: '2026-08-15T08:00:00Z', calories: 400 },
-        { logged_at: '2026-08-15T18:00:00Z', calories: 600 },
+        { logged_at: localTimestamp(8), calories: 400 },
+        { logged_at: localTimestamp(18), calories: 600 },
       ],
       [],
       [],
@@ -29,7 +33,7 @@ describe('buildCorrelationSeries', () => {
   });
 
   it('marks a day trained when a session completed_at falls on it', () => {
-    const series = buildCorrelationSeries([], ['2026-08-15T09:00:00Z'], [], 1, TODAY);
+    const series = buildCorrelationSeries([], [localTimestamp(9)], [], 1, TODAY);
     expect(series[0].trained).toBe(true);
   });
 

@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { randomUUID } from 'expo-crypto';
 import { supabase } from '../lib/supabase';
+import { localDate } from '../lib/localDate';
 import { isValidWaterMl, type WaterLogInsert } from '../lib/water/types';
 
 const TABLE_MISSING_CODE = '42P01';
@@ -23,7 +24,7 @@ export function useWaterLogs(userId: string): UseWaterLogs {
   const [isLoading, setIsLoading] = useState(true);
   const [isPersisted, setIsPersisted] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate();
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase

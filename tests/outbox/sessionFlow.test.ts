@@ -62,6 +62,7 @@ describe('flushOutbox ordering', () => {
     for (const item of [setItem('set-1'), sessionItem()]) store.set(item.id, item);
 
     const deps: FlushDeps = {
+      userId: 'user-1',
       supabase: {
         from: (table: string) => {
           calls.push(table);
@@ -83,9 +84,11 @@ describe('flushOutbox ordering', () => {
     const tables: string[] = [];
     const legacy = { ...setItem('legacy-1') };
     delete legacy.table;
+    await putOutboxItem({ ...sessionItem(), status: 'synced' });
     await putOutboxItem(legacy);
 
     const deps: FlushDeps = {
+      userId: 'user-1',
       supabase: {
         from: (table: string) => {
           tables.push(table);
@@ -121,7 +124,7 @@ describe('ensureSessionQueued', () => {
     expect((items[0].payload as WorkoutSessionInsert).duration_seconds).toBe(300);
   });
 
-  it('is a no-op once the session is synced (insert-once under RLS)', async () => {
+  it('queues a newer duration after a prior snapshot synced', async () => {
     const synced: OutboxItem = { ...sessionItem(), status: 'synced' };
     await putOutboxItem(synced);
     await useOutboxStore.getState().hydrate();
@@ -131,7 +134,7 @@ describe('ensureSessionQueued', () => {
       .ensureSessionQueued({ ...sessionInsert(), duration_seconds: 999 });
 
     const items = await getAllOutboxItems();
-    expect(items[0].status).toBe('synced');
-    expect((items[0].payload as WorkoutSessionInsert).duration_seconds).toBe(120);
+    expect(items[0].status).toBe('pending');
+    expect((items[0].payload as WorkoutSessionInsert).duration_seconds).toBe(999);
   });
 });

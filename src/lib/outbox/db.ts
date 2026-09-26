@@ -35,6 +35,19 @@ export async function putOutboxItem(item: OutboxItem): Promise<void> {
   await driver.put(item);
 }
 
+// Serialize read-modify-write operations so an in-flight acknowledgement cannot
+// overwrite a newer payload queued while its request was running.
+let mutation: Promise<unknown> = Promise.resolve();
+export function updateOutboxItem(id: string, update: (item: OutboxItem | undefined) => OutboxItem | undefined): Promise<void> {
+  const next = mutation.then(async () => {
+    const items = await getAllOutboxItems();
+    const value = update(items.find((item) => item.id === id));
+    if (value) await putOutboxItem(value);
+  });
+  mutation = next.catch(() => undefined);
+  return next;
+}
+
 export async function getAllOutboxItems(): Promise<OutboxItem[]> {
   const driver = await getDriver();
   return driver.getAll();

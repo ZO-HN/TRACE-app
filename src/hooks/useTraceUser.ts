@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
@@ -72,6 +74,15 @@ export function useTraceUser(): UseTraceUserReturn {
 
     async function fetchProfile(currentUser: User) {
       try {
+        const network = await NetInfo.fetch();
+        const cacheKey = `trace:profile:v1:${currentUser.id}`;
+        if (network.isConnected === false || network.isInternetReachable === false) {
+          const cached = await AsyncStorage.getItem(cacheKey);
+          const saved = cached ? JSON.parse(cached) as TraceProfile : null;
+          if (!saved || saved.id !== currentUser.id) throw new Error('Connect once to load your account before using TRACE offline.');
+          if (isMounted && userRef.current?.id === currentUser.id) { setProfile(saved); setError(null); }
+          return;
+        }
         const { data, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -79,14 +90,15 @@ export function useTraceUser(): UseTraceUserReturn {
           .single();
 
         if (profileError) throw profileError;
-        if (isMounted) setProfile(data as TraceProfile);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => undefined);
+        if (isMounted && userRef.current?.id === currentUser.id) { setProfile(data as TraceProfile); setError(null); }
       } catch (err: unknown) {
-        if (isMounted) {
+        if (isMounted && userRef.current?.id === currentUser.id) {
           setError(err instanceof Error ? err : new Error('Failed to fetch profile'));
           setProfile(null);
         }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted && userRef.current?.id === currentUser.id) setIsLoading(false);
       }
     }
 
@@ -139,13 +151,15 @@ export function useTraceUser(): UseTraceUserReturn {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
       const currentUser = session?.user ?? null;
+      if (userRef.current?.id !== currentUser?.id) { setProfile(null); setIsLoading(Boolean(currentUser)); }
       userRef.current = currentUser;
       setUser(currentUser);
       if (!currentUser) {
         setProfile(null);
         setIsLoading(false);
       } else {
-        fetchProfile(currentUser);
+        // Defer Supabase reads until the auth callback has released its lock.
+        setTimeout(() => { if (isMounted && userRef.current?.id === currentUser.id) void fetchProfile(currentUser); }, 0);
       }
     });
 
@@ -167,7 +181,10 @@ export function useTraceUser(): UseTraceUserReturn {
       setError(profileError instanceof Error ? profileError : new Error('Failed to refetch profile'));
       return;
     }
+    if (userRef.current?.id !== currentUser.id) return;
+    await AsyncStorage.setItem(`trace:profile:v1:${currentUser.id}`, JSON.stringify(data)).catch(() => undefined);
     setProfile(data as TraceProfile);
+    setError(null);
   }, []);
 
   return {

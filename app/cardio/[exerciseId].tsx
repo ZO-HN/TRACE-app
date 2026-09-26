@@ -1,3 +1,4 @@
+import { localDate } from '../../src/lib/localDate';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import Button from '../../src/components/ui/Button';
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return localDate();
 }
 
 function NewEntryForm({
@@ -89,12 +90,12 @@ export default function CardioExerciseScreen() {
   const { exercises } = useCardioExercises(profile!.id);
   const exerciseName = exercises.find((e) => e.id === exerciseId)?.name ?? 'Cardio';
 
-  const { entries, isLoading, addEntry, deleteEntry } = useCardioEntries(
+  const { entries, isLoading, error, refresh, addEntry, deleteEntry } = useCardioEntries(
     profile!.id,
     exerciseId,
     date,
   );
-  const { entries: weekEntries } = useCardioHistory(profile!.id, mondayOf(date));
+  const { entries: weekEntries, refresh: refreshWeek, error: weekError } = useCardioHistory(profile!.id, mondayOf(date));
   const thisExerciseWeekEntries = weekEntries.filter((e) => e.cardioExerciseId === exerciseId);
   const week = thisWeekStats(thisExerciseWeekEntries, new Date(`${date}T00:00:00`));
 
@@ -104,6 +105,7 @@ export default function CardioExerciseScreen() {
       <DateNav date={date} onChange={setDate} />
 
       <ScrollView contentContainerClassName="p-4 gap-4">
+        {(error || weekError) && <View><Text className="text-red-400">{error ?? weekError}</Text><Pressable onPress={() => { void refresh(); refreshWeek(); }}><Text className="text-primary">Retry loading cardio</Text></Pressable></View>}
         <Card className="p-4">
           <Text className="text-xs text-gray-500 uppercase font-bold tracking-wider">This week</Text>
           <Text className="text-white text-3xl font-bold mt-1">
@@ -112,7 +114,7 @@ export default function CardioExerciseScreen() {
           </Text>
         </Card>
 
-        {isLoading ? null : entries.length === 0 && !addingEntry ? (
+        {(isLoading || error) ? null : entries.length === 0 && !addingEntry ? (
           <View className="items-center py-10 gap-3">
             <View className="w-16 h-16 rounded-full bg-surface items-center justify-center">
               <Ionicons name="pulse-outline" size={26} color="#6B7280" />
@@ -134,7 +136,7 @@ export default function CardioExerciseScreen() {
                     {formatMinSec(entry.durationSeconds)}
                   </Text>
                 </View>
-                <Pressable onPress={() => void deleteEntry(entry.id)}>
+                <Pressable onPress={() => void deleteEntry(entry.id).then((result) => { if (result.ok) refreshWeek(); })}>
                   <Ionicons name="trash-outline" size={18} color="#F87171" />
                 </Pressable>
               </Card>
@@ -145,8 +147,8 @@ export default function CardioExerciseScreen() {
         {addingEntry ? (
           <NewEntryForm
             onAdd={async (seconds) => {
-              await addEntry(seconds);
-              setAddingEntry(false);
+              const result = await addEntry(seconds);
+              if (result.ok) { setAddingEntry(false); refreshWeek(); }
             }}
             onCancel={() => setAddingEntry(false)}
           />

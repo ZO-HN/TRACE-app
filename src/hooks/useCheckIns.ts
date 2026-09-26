@@ -6,6 +6,7 @@
 // set it here.
 
 import { useCallback, useEffect, useState } from 'react';
+import { localDate } from '../lib/localDate';
 import { randomUUID } from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import type { CheckIn, CheckInResponses, CheckInStatus } from '../lib/checkins/types';
@@ -38,7 +39,7 @@ export interface UseCheckIns {
   checkIns: CheckIn[];
   isLoading: boolean;
   error: string | null;
-  submit: (templateId: string, responses: CheckInResponses) => Promise<{ ok: boolean; error?: string }>;
+  submit: (templateId: string, responses: CheckInResponses, scheduledFor?: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function useCheckIns(userId: string): UseCheckIns {
@@ -68,12 +69,13 @@ export function useCheckIns(userId: string): UseCheckIns {
   }, [refresh]);
 
   const submit = useCallback(
-    async (templateId: string, responses: CheckInResponses) => {
+    async (templateId: string, responses: CheckInResponses, scheduledFor = localDate()) => {
       const { error: insertError } = await supabase.from('check_ins').insert({
         id: randomUUID(),
         client_id: userId,
         template_id: templateId,
         status: 'submitted',
+        scheduled_for: scheduledFor,
         responses,
         submitted_at: new Date().toISOString(),
       });

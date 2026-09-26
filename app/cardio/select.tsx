@@ -6,9 +6,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useCardioExercises } from '../../src/hooks/useCardioExercises';
 import DateNav from '../../src/components/cardio/DateNav';
+import { localDate } from '../../src/lib/localDate';
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return localDate();
 }
 
 export default function SelectCardioScreen() {

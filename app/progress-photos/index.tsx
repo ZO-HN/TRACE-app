@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useProgressPhotos } from '../../src/hooks/useProgressPhotos';
 import { useMediaUpload } from '../../src/hooks/useMediaUpload';
+import { localDate } from '../../src/lib/localDate';
 import type { RNFile } from '../../src/lib/storage/uploadMedia';
 import type { ProgressPhoto } from '../../src/lib/progressPhotos/types';
 import MediaViewer from '../../src/components/media/MediaViewer';
@@ -49,7 +50,7 @@ export default function ProgressPhotosScreen() {
         size: info.exists ? (info.size ?? 0) : 0,
       };
       const { key } = await media.upload(file, 'progress-photo');
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDate();
       const saved = await add(key, today);
       if (!saved.ok) setError(saved.error ?? 'Could not save that photo.');
     } catch (e) {

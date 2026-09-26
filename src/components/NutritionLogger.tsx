@@ -8,6 +8,7 @@ import { useBodyweightLogs } from '../hooks/useBodyweightLogs';
 import { buildDateStrip, sumTodayMacros } from '../lib/dashboard/today';
 import { groupIntoMealSlots } from '../lib/nutrition/mealSlots';
 import { netCarbsG } from '../lib/nutrition/netCarbs';
+import { localDate } from '../lib/localDate';
 import MacroProgressBar from './nutrition/MacroProgressBar';
 import MealSlotCard from './nutrition/MealSlotCard';
 import TrainingCorrelation from './nutrition/TrainingCorrelation';
@@ -34,8 +35,8 @@ export default function NutritionLogger({ userId }: { userId: string }) {
   const { entries: bwEntries } = useBodyweightLogs(userId, 30);
 
   const today = new Date();
-  const todayKey = today.toISOString().slice(0, 10);
-  const todaysEntries = entries.filter((e) => e.logged_at.slice(0, 10) === todayKey);
+  const todayKey = localDate(today);
+  const todaysEntries = entries.filter((e) => localDate(new Date(e.logged_at)) === todayKey);
   const macros = sumTodayMacros(entries, today);
   const netCarbsTotal = todaysEntries.reduce(
     (sum, e) => sum + (netCarbsG(e.carbs_g, e.fiber_g ?? null) ?? 0),

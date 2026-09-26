@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTraceUserContext } from '../../src/context/TraceUserContext';
 import { useRoadmaps } from '../../src/hooks/useRoadmaps';
+import { localDate } from '../../src/lib/localDate';
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
@@ -33,7 +34,7 @@ export default function RoadmapScreen() {
     setError(null);
     const result = await createPhase({
       name: name.trim(),
-      start_date: new Date().toISOString().slice(0, 10),
+      start_date: localDate(),
       target_date: targetDate.trim() || null,
       target_metric: targetMetric.trim() || null,
       target_value: targetValue.trim() ? Number(targetValue) : null,

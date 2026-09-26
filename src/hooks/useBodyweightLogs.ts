@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { randomUUID } from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import { toBodyweightLogInsert } from '../lib/bodyweight/mapBodyweight';
+import { localDate } from '../lib/localDate';
 
 export interface BodyweightEntry {
   id: string;
@@ -49,7 +50,7 @@ export function useBodyweightLogs(userId: string, limit = 30): UseBodyweightLogs
 
   const logToday = useCallback(
     async (weightLbs: number, note?: string) => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDate();
       const payload = toBodyweightLogInsert(randomUUID(), userId, weightLbs, today, note);
       const { error: upsertError } = await supabase
         .from('bodyweight_logs')

@@ -7,11 +7,12 @@ import { useSleepLogs } from './useSleepLogs';
 import { useMuscleAnalytics } from './useMuscleAnalytics';
 import { durationHours, lastNight } from '../lib/sleep/summary';
 import { computeReadiness, type ReadinessResult } from '../lib/readiness/score';
+import { localDate } from '../lib/localDate';
 
 function todayKeyMinus(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  return localDate(d);
 }
 
 export function useReadinessScore(userId: string): ReadinessResult & { isLoading: boolean } {

@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildDateStrip, sumTodayMacros } from '../../src/lib/dashboard/today';
+
+const originalTimeZone = process.env.TZ;
+
+beforeAll(() => {
+  process.env.TZ = 'Asia/Singapore';
+});
+
+afterAll(() => {
+  if (originalTimeZone === undefined) delete process.env.TZ;
+  else process.env.TZ = originalTimeZone;
+});
 
 describe('buildDateStrip', () => {
   it('centers on today with the requested range, marking today', () => {
@@ -9,6 +20,11 @@ describe('buildDateStrip', () => {
     expect(days.map((d) => d.day)).toEqual([5, 6, 7, 8, 9]);
     expect(days.filter((d) => d.isToday)).toEqual([{ date: '2026-08-07', day: 7, isToday: true }]);
   });
+
+  it('labels the local day correctly when UTC is still on the previous day', () => {
+    const days = buildDateStrip(new Date('2026-08-07T16:30:00Z'), 0, 0);
+    expect(days).toEqual([{ date: '2026-08-08', day: 8, isToday: true }]);
+  });
 });
 
 describe('sumTodayMacros', () => {
@@ -16,9 +32,9 @@ describe('sumTodayMacros', () => {
 
   it('sums only entries logged today', () => {
     const entries = [
-      { logged_at: '2026-08-07T09:00:00Z', calories: 400, protein_g: 30, carbs_g: 40, fat_g: 10 },
-      { logged_at: '2026-08-07T18:00:00Z', calories: 600, protein_g: 40, carbs_g: 50, fat_g: 20 },
-      { logged_at: '2026-08-06T18:00:00Z', calories: 999, protein_g: 99, carbs_g: 99, fat_g: 99 },
+      { logged_at: '2026-08-07T00:00:00Z', calories: 400, protein_g: 30, carbs_g: 40, fat_g: 10 },
+      { logged_at: '2026-08-07T10:00:00Z', calories: 600, protein_g: 40, carbs_g: 50, fat_g: 20 },
+      { logged_at: '2026-08-06T10:00:00Z', calories: 999, protein_g: 99, carbs_g: 99, fat_g: 99 },
     ];
     expect(sumTodayMacros(entries, today)).toEqual({
       calories: 1000,
@@ -50,5 +66,15 @@ describe('sumTodayMacros', () => {
       fat_g: 0,
       hasAny: true,
     });
+  });
+
+  it('groups timestamps by the device day across a UTC date boundary', () => {
+    const localToday = new Date('2026-08-07T16:30:00Z');
+    const entries = [
+      { logged_at: '2026-08-07T17:00:00Z', calories: 400, protein_g: 30, carbs_g: 40, fat_g: 10 },
+      { logged_at: '2026-08-08T10:00:00Z', calories: 600, protein_g: 40, carbs_g: 50, fat_g: 20 },
+    ];
+
+    expect(sumTodayMacros(entries, localToday).calories).toBe(1000);
   });
 });

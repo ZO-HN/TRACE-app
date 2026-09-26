@@ -7,7 +7,7 @@ import { Stack } from 'expo-router';
 import { useTraceUser } from '../src/hooks/useTraceUser';
 import { useOutboxSync } from '../src/hooks/useOutboxSync';
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
-import { supabase } from '../src/lib/supabase';
+import { isSupabaseConfigured, supabase } from '../src/lib/supabase';
 import AuthScreen from '../src/components/auth/AuthScreen';
 import ChooseCoachScreen from '../src/components/auth/ChooseCoachScreen';
 import { TraceUserProvider } from '../src/context/TraceUserContext';
@@ -34,6 +34,18 @@ function CoachAccountBlocked() {
       <Pressable onPress={() => void supabase.auth.signOut()}>
         <Text className="text-primary font-medium">Sign out</Text>
       </Pressable>
+    </SafeAreaView>
+  );
+}
+
+function ConfigurationError() {
+  return (
+    <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
+      <Ionicons name="cloud-offline-outline" size={32} color="#F87171" />
+      <Text className="text-xl font-bold text-white mt-4 mb-2 text-center">TRACE is not configured</Text>
+      <Text className="text-sm text-gray-400 text-center">
+        This build is missing its Supabase URL or anonymous key. Install a correctly configured build or contact support.
+      </Text>
     </SafeAreaView>
   );
 }
@@ -101,6 +113,14 @@ function Gate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  if (!isSupabaseConfigured) {
+    return (
+      <SafeAreaProvider>
+        <ConfigurationError />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <Gate>

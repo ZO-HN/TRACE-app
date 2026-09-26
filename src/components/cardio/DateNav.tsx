@@ -1,10 +1,11 @@
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { localDate } from '../../lib/localDate';
 
 function addDays(dateKey: string, delta: number): string {
   const d = new Date(`${dateKey}T00:00:00`);
   d.setDate(d.getDate() + delta);
-  return d.toISOString().slice(0, 10);
+  return localDate(d);
 }
 
 export default function DateNav({

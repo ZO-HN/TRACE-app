@@ -16,6 +16,7 @@ import {
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
 import Card from '../../src/components/ui/Card';
 import LogSleepSheet from '../../src/components/sleep/LogSleepSheet';
+import { localDate } from '../../src/lib/localDate';
 
 function StatBox({ value, label }: { value: string; label: string }) {
   return (
@@ -29,7 +30,7 @@ function StatBox({ value, label }: { value: string; label: string }) {
 function daysAgoKey(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  return localDate(d);
 }
 
 export default function SleepOverviewScreen() {
@@ -128,10 +129,9 @@ export default function SleepOverviewScreen() {
       <LogSleepSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onSave={async (bedtime, wakeTime, quality) => {
-          await logSleep(wakeTime.toISOString().slice(0, 10), bedtime.toISOString(), wakeTime.toISOString(), quality);
-          setSheetOpen(false);
-        }}
+        onSave={(bedtime, wakeTime, quality) =>
+          logSleep(localDate(wakeTime), bedtime.toISOString(), wakeTime.toISOString(), quality)
+        }
       />
     </SafeAreaView>
   );

@@ -1,8 +1,4 @@
-// Reads/writes water_logs for the signed-in trainee — one row per user per
-// day, upserted (mirrors useBodyweightLogs' logToday shape). Table doesn't
-// exist yet (docs/migrations-drafts/008_tracked_parity_tier_a.sql); until
-// applied this degrades to in-memory-only state for the session, same
-// TABLE_MISSING_CODE pattern as useBodyweightSettings.
+// Daily water totals are shown as saved only after the backend accepts them.
 
 import { useCallback, useEffect, useState } from 'react';
 import { randomUUID } from 'expo-crypto';
@@ -16,6 +12,7 @@ export interface UseWaterLogs {
   todayMl: number | null;
   isLoading: boolean;
   isPersisted: boolean;
+  error: string | null;
   logToday: (amountMl: number) => Promise<{ ok: boolean; error?: string }>;
 }
 
@@ -23,26 +20,35 @@ export function useWaterLogs(userId: string): UseWaterLogs {
   const [todayMl, setTodayMl] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPersisted, setIsPersisted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const today = localDate();
 
   const refresh = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('water_logs')
-      .select('amount_ml')
-      .eq('user_id', userId)
-      .eq('logged_date', today)
-      .maybeSingle();
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('water_logs')
+        .select('amount_ml')
+        .eq('user_id', userId)
+        .eq('logged_date', today)
+        .maybeSingle();
 
-    if (error) {
-      setIsPersisted(error.code !== TABLE_MISSING_CODE);
+      if (error) {
+        setIsPersisted(false);
+        setError(error.message);
+        return;
+      }
+
+      setIsPersisted(true);
+      setTodayMl(data?.amount_ml ?? null);
+      setError(null);
+    } catch (cause) {
+      setIsPersisted(false);
+      setError(cause instanceof Error ? cause.message : 'Could not load water intake.');
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setIsPersisted(true);
-    setTodayMl(data?.amount_ml ?? null);
-    setIsLoading(false);
   }, [userId, today]);
 
   useEffect(() => {
@@ -51,11 +57,10 @@ export function useWaterLogs(userId: string): UseWaterLogs {
 
   const logToday = useCallback(
     async (amountMl: number) => {
+      if (isLoading || !isPersisted) return { ok: false, error: 'Load today\'s water intake before adding more. Please reopen this page when connected.' };
       if (!isValidWaterMl(amountMl)) {
         return { ok: false, error: 'Enter a realistic amount (0-10,000 mL).' };
       }
-
-      setTodayMl(amountMl); // optimistic — sticks locally even pre-migration
 
       const payload: WaterLogInsert = {
         id: randomUUID(),
@@ -70,16 +75,17 @@ export function useWaterLogs(userId: string): UseWaterLogs {
       if (error) {
         if (error.code === TABLE_MISSING_CODE) {
           setIsPersisted(false);
-          return { ok: true };
+          return { ok: false, error: 'Water tracking is unavailable. Please contact your coach.' };
         }
         return { ok: false, error: error.message };
       }
 
       setIsPersisted(true);
+      setTodayMl(amountMl);
       return { ok: true };
     },
-    [userId, today],
+    [userId, today, isLoading, isPersisted],
   );
 
-  return { todayMl, isLoading, isPersisted, logToday };
+  return { todayMl, isLoading, isPersisted, error, logToday };
 }

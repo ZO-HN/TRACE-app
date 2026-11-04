@@ -1,26 +1,21 @@
-// Free-text macro parsing for the quick-logger — "80g Protein" style entry
-// per docs/trace_features.md's "Macro Quick-Logger". Pure and
-// framework-free so it's testable without rendering anything.
+// Free-text nutrition parsing follows TRACE/docs/features/nutrition.md.
+// This module stays framework-free so validation can be tested without rendering.
 
 export interface ParsedMacros {
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
   calories: number | null;
+  /** A recognized quantity is invalid; reject the entire entry, including other valid fields. */
+  error?: string;
 }
 
-// Require the full word, not single-letter shorthand (p/c/f) — too easy to
-// false-positive match inside unrelated text.
-const MACRO_PATTERNS: ReadonlyArray<{
-  key: 'protein_g' | 'carbs_g' | 'fat_g';
-  re: RegExp;
-}> = [
-  { key: 'protein_g', re: /(\d+(?:\.\d+)?)\s*g?\s*protein/i },
-  { key: 'carbs_g', re: /(\d+(?:\.\d+)?)\s*g?\s*carb(?:s|ohydrates?)?\b/i },
-  { key: 'fat_g', re: /(\d+(?:\.\d+)?)\s*g?\s*fat/i },
-];
-
-const CALORIE_PATTERN = /(\d+(?:\.\d+)?)\s*(?:kcal|calories|cal)\b/i;
+// Capture the complete numeric-looking token before a full nutrition label.
+// Keep signs, exponent markers, separators and intervening whitespace together
+// so an invalid token cannot be retried as a smaller, valid numeric suffix.
+const ENTRY_PATTERN = /(?:^|[^\w.+\-\u2212])([+\-\u2212\d.,][\d.,eE+\-\u2212\s]*)\s*(g\s*)?(protein|carb(?:s|ohydrates?)?|fat|kcal|calories|cal)\b/gi;
+const PLAIN_NUMBER = /^[+-]?\d+(?:[.,]\d+)?$/;
+const QUANTITY_ERROR = 'Use plain numbers with one decimal point or comma. Scientific notation and repeated separators are not supported.';
 
 export function parseQuickEntry(text: string): ParsedMacros {
   const result: ParsedMacros = {
@@ -30,22 +25,31 @@ export function parseQuickEntry(text: string): ParsedMacros {
     calories: null,
   };
 
-  for (const { key, re } of MACRO_PATTERNS) {
-    const match = text.match(re);
-    if (match) result[key] = parseFloat(match[1]);
+  for (const match of text.matchAll(ENTRY_PATTERN)) {
+    const quantity = match[1].trim();
+    const label = match[3].toLowerCase();
+    const key = label === 'protein' ? 'protein_g'
+      : label.startsWith('carb') ? 'carbs_g'
+        : label === 'fat' ? 'fat_g' : 'calories';
+    const value = Number(quantity.replace(',', '.'));
+    if (!PLAIN_NUMBER.test(quantity) || !Number.isFinite(value) || (key === 'calories' && match[2])) {
+      result.error = QUANTITY_ERROR;
+      continue;
+    }
+    // Validate every occurrence before deduplication or rounding. An invalid
+    // later duplicate must reject the entry even when its first value is valid.
+    if (value < 0) {
+      result.error = 'Calories and macros must be non-negative.';
+      continue;
+    }
+    if (result[key] === null) result[key] = key === 'calories' ? Math.round(value) : value;
   }
-
-  const calMatch = text.match(CALORIE_PATTERN);
-  if (calMatch) result.calories = Math.round(parseFloat(calMatch[1]));
 
   return result;
 }
 
 export function hasAnyMacro(parsed: ParsedMacros): boolean {
-  return (
-    parsed.protein_g != null ||
-    parsed.carbs_g != null ||
-    parsed.fat_g != null ||
-    parsed.calories != null
-  );
+  const values = [parsed.protein_g, parsed.carbs_g, parsed.fat_g, parsed.calories]
+    .filter((value): value is number => value !== null);
+  return !parsed.error && values.length > 0 && values.every((value) => Number.isFinite(value) && value >= 0);
 }

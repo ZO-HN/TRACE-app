@@ -13,6 +13,8 @@ import DateNav from '../../src/components/cardio/DateNav';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
+import { useAsyncAction } from '../../src/hooks/useAsyncAction';
+import { isValidCardioDuration } from '../../src/lib/health/inputValidation';
 
 function todayKey() {
   return localDate();
@@ -22,20 +24,23 @@ function NewEntryForm({
   onAdd,
   onCancel,
 }: {
-  onAdd: (durationSeconds: number) => Promise<void>;
+  onAdd: (durationSeconds: number) => Promise<{ ok: boolean; error?: string }>;
   onCancel: () => void;
 }) {
   const [min, setMin] = useState('');
   const [sec, setSec] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const action = useAsyncAction();
 
-  const handleSave = async () => {
-    const total = (parseInt(min, 10) || 0) * 60 + (parseInt(sec, 10) || 0);
-    if (total <= 0) return;
-    setSubmitting(true);
-    await onAdd(total);
-    setSubmitting(false);
-  };
+  const handleSave = () => action.run(async () => {
+    const minutes = Number(min);
+    const seconds = Number(sec);
+    const total = minutes * 60 + seconds;
+    if (!Number.isInteger(minutes) || minutes < 0 || !Number.isInteger(seconds) || seconds < 0 || seconds > 59 || !isValidCardioDuration(total)) {
+      throw new Error('Enter whole minutes and seconds (0-59), up to 24 hours.');
+    }
+    const result = await onAdd(total);
+    if (!result.ok) throw new Error(result.error ?? 'Could not save cardio.');
+  });
 
   return (
     <Card className="p-4 gap-3">
@@ -66,11 +71,12 @@ function NewEntryForm({
           <Text className="text-center text-xs text-gray-500 mt-1">sec</Text>
         </View>
       </View>
+      {action.error && <Text className="text-red-400">{action.error}</Text>}
       <View className="flex-row gap-2">
         <Pressable onPress={onCancel} className="flex-1 h-10 items-center justify-center">
           <Text className="text-gray-500 text-sm font-medium">Cancel</Text>
         </Pressable>
-        <Button fullWidth onPress={() => void handleSave()} loading={submitting}>
+        <Button fullWidth onPress={() => void handleSave()} loading={action.pending}>
           Save entry
         </Button>
       </View>
@@ -149,6 +155,7 @@ export default function CardioExerciseScreen() {
             onAdd={async (seconds) => {
               const result = await addEntry(seconds);
               if (result.ok) { setAddingEntry(false); refreshWeek(); }
+              return result;
             }}
             onCancel={() => setAddingEntry(false)}
           />

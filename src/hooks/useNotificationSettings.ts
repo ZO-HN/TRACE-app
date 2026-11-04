@@ -64,7 +64,6 @@ export function useNotificationSettings(userId: string): UseNotificationSettings
   const update = useCallback(
     async (patch: Partial<NotificationSettings>) => {
       const next = { ...settings, ...patch };
-      setSettings(next);
 
       const { error } = await supabase.from('notification_settings').upsert(
         {
@@ -81,12 +80,13 @@ export function useNotificationSettings(userId: string): UseNotificationSettings
       if (error) {
         if (error.code === TABLE_MISSING_CODE) {
           setIsPersisted(false);
-          return { ok: true };
+          return { ok: false, error: 'Notification settings could not be saved. Please try again later.' };
         }
         return { ok: false, error: error.message };
       }
 
       setIsPersisted(true);
+      setSettings(next);
       return { ok: true };
     },
     [settings, userId],

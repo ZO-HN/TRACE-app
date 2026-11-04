@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
@@ -8,10 +8,11 @@ import { useStepsLogs } from '../hooks/useStepsLogs';
 import { useNutritionLogs } from '../hooks/useNutritionLogs';
 import { useSleepLogs } from '../hooks/useSleepLogs';
 import { useWaterLogs } from '../hooks/useWaterLogs';
-import { buildDateStrip } from '../lib/dashboard/today';
 import { sumTodayMacros } from '../lib/dashboard/today';
 import { latestTrend } from '../lib/bodyweight/trend';
 import { isValidBodyweightLbs } from '../lib/bodyweight/mapBodyweight';
+import { parseBodyweightNumber } from '../lib/bodyweight/entryInput';
+import type { WeightDisplayUnit } from '../lib/units';
 import { durationHours, formatHours, lastNight } from '../lib/sleep/summary';
 import { formatWeightKg, kgToLbs } from '../lib/units';
 import { localDate } from '../lib/localDate';
@@ -19,6 +20,13 @@ import { useUnitPreference } from '../hooks/useUnitPreference';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import LogSleepSheet from './sleep/LogSleepSheet';
+import { useAsyncAction } from '../hooks/useAsyncAction';
+import { isValidSteps } from '../lib/health/inputValidation';
+import DateNavigator from './dashboard/DateNavigator';
+import DayHistory from './dashboard/DayHistory';
+import { useDashboardLayout } from '../hooks/useDashboardLayout';
+import { dashboardGroups, defaultDashboardLayout } from '../lib/dashboard/layout';
+import Switch from './ui/Switch';
 
 function daysAgoKey(days: number): string {
   const d = new Date();
@@ -38,26 +46,28 @@ function DashCard({
   title,
   badge,
   className = '',
+  onOpen,
   children,
 }: {
   title: string;
   badge?: string;
   className?: string;
+  onOpen?: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <Card className={`p-4 gap-3 ${className}`}>
-      <View className="flex-row items-center justify-between">
-        <Text className="text-white font-bold">{title}</Text>
+    <Card className={`p-4 gap-3 grow min-h-[148px] ${className}`}>
+      <View className="flex-row flex-wrap items-center justify-between gap-1">
+        {onOpen ? <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Open ${title} history`}
+          className="flex-row items-center gap-1 min-h-[44px] shrink">
+          <Text className="text-white font-bold shrink">{title}</Text>
+          <Ionicons name="chevron-forward" size={12} color="#9CA3AF" />
+        </Pressable> : <Text className="text-white font-bold shrink">{title}</Text>}
         {badge && <Badge>{badge}</Badge>}
       </View>
-      {children}
+      <View className="flex-1 justify-end gap-3">{children}</View>
     </Card>
   );
-}
-
-function comingSoon(feature: string) {
-  Alert.alert('Coming soon', `${feature} isn't available yet.`);
 }
 
 function QuickLogWeight({
@@ -65,34 +75,30 @@ function QuickLogWeight({
   unit,
   onDone,
 }: {
-  logToday: (weightLbs: number, note?: string) => Promise<{ ok: boolean; error?: string }>;
+  logToday: (weight: number, note?: string, unit?: WeightDisplayUnit) => Promise<{ ok: boolean; error?: string }>;
   unit: 'lbs' | 'kg';
   onDone: () => void;
 }) {
   const [value, setValue] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const action = useAsyncAction();
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    const entered = parseFloat(value);
-    // logToday's contract is lbs regardless of display unit — convert a kg
-    // entry up front so the rest of the bodyweight pipeline (validation,
-    // storage) doesn't need to know about the preference.
+  const handleSubmit = () => action.run(async () => {
+    setError(null);
+    const entered = parseBodyweightNumber(value);
     const lbs = unit === 'kg' ? kgToLbs(entered) : entered;
     if (!isValidBodyweightLbs(lbs)) {
       setError('Enter a realistic bodyweight.');
       return;
     }
-    setSubmitting(true);
     setError(null);
-    const result = await logToday(lbs);
-    setSubmitting(false);
+    const result = await logToday(entered, undefined, unit);
     if (result.ok) {
       onDone();
     } else {
       setError(result.error ?? 'Could not log that entry.');
     }
-  };
+  });
 
   return (
     <View className="gap-2">
@@ -108,14 +114,14 @@ function QuickLogWeight({
         />
         <Text className="text-xs text-gray-500">{unit}</Text>
       </View>
-      {error && <Text className="text-[11px] text-red-400">{error}</Text>}
+      {(error || action.error) && <Text className="text-[11px] text-red-400">{error ?? action.error}</Text>}
       <View className="flex-row gap-2">
-        <Pressable onPress={onDone} className="flex-1 h-9 items-center justify-center">
+        <Pressable onPress={onDone} className="flex-1 h-11 items-center justify-center">
           <Text className="text-gray-500 text-xs font-medium">Cancel</Text>
         </Pressable>
-        <Button size="sm" fullWidth onPress={() => void handleSubmit()} loading={submitting} disabled={!value.trim()}>
+        <View className="flex-1 min-w-0"><Button size="sm" fullWidth onPress={() => void handleSubmit()} loading={action.pending} disabled={!value.trim()}>
           Save
-        </Button>
+        </Button></View>
       </View>
     </View>
   );
@@ -132,22 +138,20 @@ function QuickLogSteps({
   onDone: () => void;
 }) {
   const [value, setValue] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const action = useAsyncAction();
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    const steps = parseInt(value, 10);
-    if (!Number.isFinite(steps) || steps < 0 || steps > 200_000) {
+  const handleSubmit = () => action.run(async () => {
+    const steps = Number(value);
+    if (!value.trim() || !isValidSteps(steps)) {
       setError('Enter a realistic step count.');
       return;
     }
-    setSubmitting(true);
     setError(null);
     const result = await onSave(steps);
-    setSubmitting(false);
     if (result.ok) onDone();
     else setError(result.error ?? 'Could not log that entry.');
-  };
+  });
 
   return (
     <View className="gap-2">
@@ -163,14 +167,14 @@ function QuickLogSteps({
         />
         <Text className="text-xs text-gray-500">steps</Text>
       </View>
-      {error && <Text className="text-[11px] text-red-400">{error}</Text>}
+      {(error || action.error) && <Text className="text-[11px] text-red-400">{error ?? action.error}</Text>}
       <View className="flex-row gap-2">
-        <Pressable onPress={onDone} className="flex-1 h-9 items-center justify-center">
+        <Pressable onPress={onDone} className="flex-1 h-11 items-center justify-center">
           <Text className="text-gray-500 text-xs font-medium">Cancel</Text>
         </Pressable>
-        <Button size="sm" fullWidth onPress={() => void handleSubmit()} loading={submitting} disabled={!value.trim()}>
+        <View className="flex-1 min-w-0"><Button size="sm" fullWidth onPress={() => void handleSubmit()} loading={action.pending} disabled={!value.trim()}>
           Save
-        </Button>
+        </Button></View>
       </View>
     </View>
   );
@@ -184,20 +188,26 @@ function QuickLogWater({
   onDone,
 }: {
   todayMl: number | null;
-  onAdd: (amountMl: number) => void;
+  onAdd: (amountMl: number) => Promise<{ ok: boolean; error?: string }>;
   onDone: () => void;
 }) {
-  const addServing = () => onAdd((todayMl ?? 0) + WATER_SERVING_ML);
+  const action = useAsyncAction();
+  const addServing = () => action.run(async () => {
+    const result = await onAdd((todayMl ?? 0) + WATER_SERVING_ML);
+    if (!result.ok) throw new Error(result.error ?? 'Could not save water.');
+  });
 
   return (
     <View className="gap-2">
       <Pressable
-        onPress={addServing}
+        onPress={() => void addServing()}
+        disabled={action.pending}
         className="h-9 rounded-lg bg-background border border-border items-center justify-center flex-row gap-1.5"
       >
         <Ionicons name="water-outline" size={14} color="#4ADE80" />
         <Text className="text-white text-xs font-medium">+{WATER_SERVING_ML} mL cup</Text>
       </Pressable>
+      {action.error && <Text className="text-xs text-red-400">{action.error}</Text>}
       <Pressable onPress={onDone} className="h-8 items-center justify-center">
         <Text className="text-gray-500 text-xs font-medium">Done</Text>
       </Pressable>
@@ -206,14 +216,25 @@ function QuickLogWater({
 }
 
 export default function Dashboard({ userId }: { userId: string }) {
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const date = localDate(selectedDate);
+  return <View className="flex-1">
+    <DateNavigator date={selectedDate} onChange={setSelectedDate} />
+    {date === localDate() ? <TodayDashboard userId={userId} /> : <DayHistory key={`${userId}:${date}`} userId={userId} date={date} />}
+  </View>;
+}
+
+function TodayDashboard({ userId }: { userId: string }) {
+  const { layout, loaded: layoutLoaded, error: layoutError, update: updateLayout } = useDashboardLayout(userId);
+  const [customizing, setCustomizing] = useState(false);
+  const layoutAction = useAsyncAction();
   const today = new Date();
-  const dateStrip = buildDateStrip(today);
   const { templateName, exercises } = useAssignedWorkout(userId);
   const { entries: bwEntries, logToday } = useBodyweightLogs(userId, 14);
   const { unit: weightUnit } = useUnitPreference();
   const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
   const { logs: sleepLogs, logSleep } = useSleepLogs(userId, daysAgoKey(7));
-  const { todayMl: waterMl, logToday: logWater } = useWaterLogs(userId);
+  const { todayMl: waterMl, logToday: logWater, error: waterError, isLoading: waterLoading } = useWaterLogs(userId);
   const { entries: stepsEntries, logToday: logSteps } = useStepsLogs(userId, 7);
   const [loggingWeight, setLoggingWeight] = useState(false);
   const [loggingSteps, setLoggingSteps] = useState(false);
@@ -235,39 +256,24 @@ export default function Dashboard({ userId }: { userId: string }) {
     <ScrollView className="flex-1" contentContainerClassName="px-4 py-4 gap-4">
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-bold text-white">{dateLabel}</Text>
-        <View className="bg-surface border border-border rounded-full px-4 py-1.5">
-          <Text className="text-white font-semibold text-sm">Today</Text>
-        </View>
       </View>
 
-      <View className="flex-row justify-between">
-        {dateStrip.map((d) => (
-          <View
-            key={d.date}
-            className={`w-10 h-10 rounded-xl items-center justify-center ${
-              d.isToday ? 'bg-surface border border-primary' : ''
-            }`}
-          >
-            <Text className={`font-bold ${d.isToday ? 'text-white' : 'text-gray-500'}`}>{d.day}</Text>
-          </View>
-        ))}
-      </View>
 
-      <DashCard title="Training" badge={templateName ? undefined : 'No program'}>
+      {layout.training && <DashCard title="Training" badge={templateName ? undefined : 'No program'}>
         <Button fullWidth onPress={() => router.push('/(tabs)/session')}>
           {templateName ?? (exercises ? 'Continue Workout' : 'Select Workout')}
         </Button>
-      </DashCard>
+      </DashCard>}
 
-      <View className="flex-row gap-3">
-        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/nutrition')}>
+      {layout.nutrition && <View className="flex-row items-stretch gap-3">
+        <Pressable className="flex-1 min-w-0" onPress={() => router.push('/(tabs)/nutrition')}>
           <DashCard title="Calories" badge={macros.hasAny ? undefined : 'No goal'}>
             <Text className="text-white text-2xl font-bold">
               {macros.calories} <Text className="text-sm text-gray-500 font-normal">kcal</Text>
             </Text>
           </DashCard>
         </Pressable>
-        <Pressable className="flex-1" onPress={() => router.push('/(tabs)/nutrition')}>
+        <Pressable className="flex-1 min-w-0" onPress={() => router.push('/(tabs)/nutrition')}>
           <DashCard title="Macros">
             {macros.hasAny ? (
               <Text className="text-xs text-gray-400">
@@ -281,15 +287,13 @@ export default function Dashboard({ userId }: { userId: string }) {
             )}
           </DashCard>
         </Pressable>
-      </View>
+      </View>}
 
-      <View className="flex-row gap-3">
-        <Pressable
-          className="flex-1"
-          disabled={loggingWeight}
-          onPress={() => router.push('/bodyweight/history')}
+      {layout.weightSteps && <View className="flex-row items-stretch gap-3">
+        <View
+          className="flex-1 min-w-0"
         >
-          <DashCard title="Bodyweight" badge={bwEntries.length > 0 ? undefined : 'No log'}>
+          <DashCard title="Bodyweight" badge={bwEntries.length > 0 ? undefined : 'No log'} onOpen={() => router.push('/bodyweight/history')}>
             {bwEntries.length > 0 && !loggingWeight ? (
               <Text className="text-white text-lg font-bold">
                 {formatWeightKg(bwEntries[0].weight_kg, weightUnit).value.toFixed(1)}{' '}
@@ -304,8 +308,8 @@ export default function Dashboard({ userId }: { userId: string }) {
               </Button>
             )}
           </DashCard>
-        </Pressable>
-        <DashCard title="Steps" badge={todayStepsEntry === undefined ? 'No log' : 'Today'} className="flex-1">
+        </View>
+        <DashCard title="Steps" badge={todayStepsEntry === undefined ? 'No log' : 'Today'} className="flex-1 min-w-0">
           {todayStepsEntry !== undefined && !loggingSteps ? (
             <Text className="text-white text-lg font-bold">
               {todayStepsEntry.steps.toLocaleString()} <Text className="text-xs text-gray-500 font-normal">steps</Text>
@@ -319,16 +323,16 @@ export default function Dashboard({ userId }: { userId: string }) {
             </Button>
           )}
         </DashCard>
-      </View>
+      </View>}
 
-      <View className="flex-row gap-3">
-        <Pressable className="flex-1" onPress={() => router.push('/cardio')}>
+      {layout.cardioSleep && <View className="flex-row items-stretch gap-3">
+        <Pressable className="flex-1 min-w-0" onPress={() => router.push('/cardio')}>
           <DashCard title="Cardio">
             <Text className="text-xs text-gray-500">Pick a cardio exercise to start tracking.</Text>
           </DashCard>
         </Pressable>
-        <Pressable className="flex-1" onPress={() => router.push('/sleep')}>
-          <DashCard title="Sleep" badge={lastSleep ? undefined : 'No log'}>
+        <View className="flex-1 min-w-0">
+          <DashCard title="Sleep" badge={lastSleep ? undefined : 'No log'} onOpen={() => router.push('/sleep')}>
             {lastSleep ? (
               <>
                 <Text className="text-white text-lg font-bold">
@@ -343,11 +347,12 @@ export default function Dashboard({ userId }: { userId: string }) {
               Log Sleep
             </Button>
           </DashCard>
-        </Pressable>
-      </View>
+        </View>
+      </View>}
 
-      <View className="flex-row gap-3">
+      {layout.water && <View className="flex-row gap-3">
         <DashCard title="Water" badge={waterMl == null ? 'No log' : 'Today'} className="flex-1">
+          {waterError && <Text className="text-xs text-red-400">{waterError}</Text>}
           {waterMl != null && !loggingWater ? (
             <Text className="text-white text-lg font-bold">
               {(waterMl / 1000).toFixed(2)} <Text className="text-xs text-gray-500 font-normal">L</Text>
@@ -356,16 +361,16 @@ export default function Dashboard({ userId }: { userId: string }) {
           {loggingWater ? (
             <QuickLogWater
               todayMl={waterMl}
-              onAdd={(ml) => void logWater(ml)}
+              onAdd={logWater}
               onDone={() => setLoggingWater(false)}
             />
           ) : (
-            <Button size="sm" variant="secondary" fullWidth onPress={() => setLoggingWater(true)}>
+            <Button size="sm" variant="secondary" fullWidth disabled={waterLoading || !!waterError} onPress={() => setLoggingWater(true)}>
               Log Water
             </Button>
           )}
         </DashCard>
-      </View>
+      </View>}
 
       <LogSleepSheet
         visible={sleepSheetOpen}
@@ -380,25 +385,47 @@ export default function Dashboard({ userId }: { userId: string }) {
         }
       />
 
-      <DashCard title="Physique">
+      {layout.physique && <DashCard title="Physique">
         <Pressable
           onPress={() => router.push('/progress-photos')}
           className="w-16 h-16 rounded-2xl bg-background border border-border items-center justify-center self-center"
         >
           <Ionicons name="camera-outline" size={22} color="#6B7280" />
         </Pressable>
-      </DashCard>
+      </DashCard>}
 
       <Pressable
-        onPress={() => comingSoon('Dashboard customization')}
+        onPress={() => setCustomizing(true)}
         className="flex-row items-center justify-between bg-surface border border-border rounded-2xl px-4 py-3.5"
       >
         <View className="flex-row items-center gap-2">
           <Ionicons name="grid-outline" size={16} color="#9CA3AF" />
           <Text className="text-gray-400 font-semibold">Customize dashboard</Text>
         </View>
-        <Badge>Pro</Badge>
+        <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
       </Pressable>
+      <Modal visible={customizing} transparent animationType="fade" onRequestClose={() => setCustomizing(false)}>
+        <View className="flex-1 bg-black/70 justify-center px-4">
+          <View className="bg-surface rounded-2xl p-5 gap-4 max-h-[85%]">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-lg text-white font-bold">Dashboard layout</Text>
+              <Pressable accessibilityLabel="Close dashboard settings" onPress={() => setCustomizing(false)} className="w-11 h-11 items-center justify-center">
+                <Ionicons name="close" size={22} color="#fff" />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {dashboardGroups.map(({ key, label }) => <View key={key} className="flex-row items-center justify-between min-h-[52px] gap-3">
+                <Text className="text-white flex-1">{label}</Text>
+                <Switch value={layout[key]} disabled={!layoutLoaded || layoutAction.pending}
+                  onValueChange={(value) => void layoutAction.run(() => updateLayout({ ...layout, [key]: value }))} />
+              </View>)}
+            </ScrollView>
+            {(layoutError || layoutAction.error) && <Text className="text-red-400">{layoutAction.error ?? layoutError}</Text>}
+            <Button variant="secondary" disabled={!layoutLoaded} loading={layoutAction.pending}
+              onPress={() => void layoutAction.run(() => updateLayout({ ...defaultDashboardLayout }))}>Restore defaults</Button>
+          </View>
+        </View>
+      </Modal>
 
       {trend.direction === 'up' || trend.direction === 'down' ? (
         <Text className="text-xs text-gray-500 text-center">

@@ -68,9 +68,12 @@ export function useTraceUser(): UseTraceUserReturn {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const userRef = useRef<User | null>(null);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
+    mountedRef.current = true;
+    let authRevision = 0;
 
     async function fetchProfile(currentUser: User) {
       try {
@@ -103,6 +106,7 @@ export function useTraceUser(): UseTraceUserReturn {
     }
 
     async function init() {
+      const revision = authRevision;
       setIsLoading(true);
       setError(null);
 
@@ -110,6 +114,7 @@ export function useTraceUser(): UseTraceUserReturn {
         data: { session },
         error: authError,
       } = await supabase.auth.getSession();
+      if (!isMounted || revision !== authRevision) return;
       if (authError && isMounted) {
         setError(authError);
         setIsLoading(false);
@@ -123,6 +128,7 @@ export function useTraceUser(): UseTraceUserReturn {
           email: DEV_AUTO_LOGIN_EMAIL!,
           password: DEV_AUTO_LOGIN_PASSWORD!,
         });
+        if (!isMounted || revision !== authRevision) return;
         if (signInError) {
           console.warn('DEV_AUTO_LOGIN failed, falling back to the sign-in screen:', signInError.message);
         } else {
@@ -144,12 +150,17 @@ export function useTraceUser(): UseTraceUserReturn {
       await fetchProfile(currentUser);
     }
 
-    init();
+    void init().catch((cause: unknown) => {
+      if (!isMounted || userRef.current) return;
+      setError(cause instanceof Error ? cause : new Error('Could not load your sign-in session.'));
+      setIsLoading(false);
+    });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
+      if (_event !== 'INITIAL_SESSION') authRevision += 1;
       const currentUser = session?.user ?? null;
       if (userRef.current?.id !== currentUser?.id) { setProfile(null); setIsLoading(Boolean(currentUser)); }
       userRef.current = currentUser;
@@ -165,6 +176,7 @@ export function useTraceUser(): UseTraceUserReturn {
 
     return () => {
       isMounted = false;
+      mountedRef.current = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -177,12 +189,14 @@ export function useTraceUser(): UseTraceUserReturn {
       .select('*')
       .eq('id', currentUser.id)
       .single();
+    if (!mountedRef.current || userRef.current?.id !== currentUser.id) return;
     if (profileError) {
-      setError(profileError instanceof Error ? profileError : new Error('Failed to refetch profile'));
-      return;
+      const cause = profileError instanceof Error ? profileError : new Error('Failed to refetch profile');
+      setError(cause);
+      throw cause;
     }
-    if (userRef.current?.id !== currentUser.id) return;
     await AsyncStorage.setItem(`trace:profile:v1:${currentUser.id}`, JSON.stringify(data)).catch(() => undefined);
+    if (!mountedRef.current || userRef.current?.id !== currentUser.id) return;
     setProfile(data as TraceProfile);
     setError(null);
   }, []);

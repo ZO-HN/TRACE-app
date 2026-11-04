@@ -26,6 +26,7 @@ export default function AICopilotChatScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     if (!isLoading && !isConfigured) {
@@ -35,7 +36,8 @@ export default function AICopilotChatScreen() {
 
   const send = async () => {
     const text = input.trim();
-    if (!text || !config) return;
+    if (!text || !config || sendingRef.current) return;
+    sendingRef.current = true;
 
     const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: text }];
     setMessages(nextMessages);
@@ -45,12 +47,15 @@ export default function AICopilotChatScreen() {
 
     const result = await chatCompletion(config, [SYSTEM_PROMPT, ...nextMessages]);
     setSending(false);
+    sendingRef.current = false;
 
     if (result.ok) {
       setMessages((cur) => [...cur, { role: 'assistant', content: result.content }]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
     } else {
       setError(result.error);
+      setMessages(messages);
+      setInput(text);
     }
   };
 

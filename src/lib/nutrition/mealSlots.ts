@@ -17,6 +17,7 @@ export interface MealSlotEntry {
   fat_g: number | null;
   calories: number | null;
   meal_slot?: number | null;
+  syncStatus?: 'pending' | 'syncing' | 'synced' | 'failed';
 }
 
 export function groupIntoMealSlots<T extends MealSlotEntry>(
@@ -27,7 +28,7 @@ export function groupIntoMealSlots<T extends MealSlotEntry>(
 
   const unslotted: T[] = [];
   for (const entry of todaysEntries) {
-    if (entry.meal_slot != null && entry.meal_slot >= 1 && entry.meal_slot <= slotCount) {
+    if (entry.meal_slot != null && Number.isInteger(entry.meal_slot) && entry.meal_slot >= 1 && entry.meal_slot <= slotCount) {
       slots[entry.meal_slot - 1].push(entry);
     } else {
       unslotted.push(entry);

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { randomUUID } from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import type { CardioEntry } from '../lib/cardio/types';
+import { isValidCardioDuration } from '../lib/health/inputValidation';
 
 interface EntryRow {
   id: string;
@@ -61,6 +62,9 @@ export function useCardioEntries(
 
   const addEntry = useCallback(
     async (durationSeconds: number) => {
+      if (!isValidCardioDuration(durationSeconds)) {
+        return { ok: false, error: 'Enter a whole-number duration from 1 second to 24 hours.' };
+      }
       const { error } = await supabase.from('cardio_entries').insert({
         id: randomUUID(),
         user_id: userId,

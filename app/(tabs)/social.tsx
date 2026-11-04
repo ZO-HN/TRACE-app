@@ -7,6 +7,7 @@ import { useFollowers } from '../../src/hooks/useFollowers';
 import { useCoachRoster, type RosterMember } from '../../src/hooks/useCoachRoster';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
+import { useAsyncAction } from '../../src/hooks/useAsyncAction';
 
 type SocialTab = 'feed' | 'connected' | 'discover';
 
@@ -66,6 +67,7 @@ function ConnectedTab({ userId }: { userId: string }) {
   const { roster, isAvailable: rosterAvailable } = useCoachRoster();
   const { followeeIds, isAvailable: followsAvailable, unfollow } = useFollows(userId);
   const { followerIds } = useFollowers(userId);
+  const action = useAsyncAction();
 
   if (!rosterAvailable || !followsAvailable) return <NotLiveYet label="Connections" />;
 
@@ -74,6 +76,7 @@ function ConnectedTab({ userId }: { userId: string }) {
 
   return (
     <ScrollView contentContainerClassName="p-4 gap-6">
+      {action.error && <Text className="text-red-400">{action.error}</Text>}
       <View className="gap-2">
         <Text className="text-xs text-gray-500 uppercase font-bold tracking-wider">
           Following ({following.length})
@@ -86,7 +89,10 @@ function ConnectedTab({ userId }: { userId: string }) {
               key={m.id}
               member={m}
               action={
-                <Pressable onPress={() => void unfollow(m.id)}>
+                <Pressable disabled={action.pending} onPress={() => void action.run(async () => {
+                  const result = await unfollow(m.id);
+                  if (!result.ok) throw new Error(result.error ?? 'Could not unfollow.');
+                })}>
                   <Text className="text-gray-400 text-xs font-semibold">Unfollow</Text>
                 </Pressable>
               }
@@ -112,6 +118,7 @@ function ConnectedTab({ userId }: { userId: string }) {
 function DiscoverTab({ userId }: { userId: string }) {
   const { roster, isLoading, isAvailable: rosterAvailable } = useCoachRoster();
   const { followeeIds, isAvailable: followsAvailable, follow, unfollow } = useFollows(userId);
+  const action = useAsyncAction();
 
   if (!rosterAvailable || !followsAvailable) return <NotLiveYet label="Discover" />;
 
@@ -129,6 +136,7 @@ function DiscoverTab({ userId }: { userId: string }) {
 
   return (
     <ScrollView contentContainerClassName="p-4 gap-2">
+      {action.error && <Text className="text-red-400">{action.error}</Text>}
       {roster.map((m) => {
         const isFollowing = followeeIds.includes(m.id);
         return (
@@ -139,7 +147,11 @@ function DiscoverTab({ userId }: { userId: string }) {
               <Button
                 size="sm"
                 variant={isFollowing ? 'secondary' : 'primary'}
-                onPress={() => void (isFollowing ? unfollow(m.id) : follow(m.id))}
+                disabled={action.pending}
+                onPress={() => void action.run(async () => {
+                  const result = await (isFollowing ? unfollow(m.id) : follow(m.id));
+                  if (!result.ok) throw new Error(result.error ?? 'Could not update this connection.');
+                })}
               >
                 {isFollowing ? 'Following' : 'Follow'}
               </Button>

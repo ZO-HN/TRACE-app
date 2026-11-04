@@ -11,6 +11,12 @@ const template = (overrides: Partial<WorkoutTemplateSummary>): WorkoutTemplateSu
 });
 
 describe('groupByFolder', () => {
+  it('keeps empty folders visible and preserves folder order', () => {
+    const folders = [{ id: 'empty', name: 'A' }, { id: 'full', name: 'B' }];
+    const groups = groupByFolder([template({ folderId: 'full' })], folders);
+    expect(groups.map((group) => group.folder?.id)).toEqual(['empty', 'full']);
+    expect(groups[0].templates).toEqual([]);
+  });
   it('buckets templates by folder and puts folderless ones in Unfoldered', () => {
     const folders: WorkoutFolder[] = [{ id: 'f1', name: 'Push/Pull' }];
     const templates = [

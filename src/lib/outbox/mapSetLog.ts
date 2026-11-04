@@ -37,7 +37,7 @@ export function isValidSetInput(input: SetInput): boolean {
   if (input.setType === 'duration') {
     if (input.durationSeconds == null || isBlank(input.durationSeconds)) return false;
     const duration = toNumber(input.durationSeconds);
-    return Number.isFinite(duration) && duration > 0;
+    return Number.isInteger(duration) && duration > 0;
   }
 
   if (isBlank(input.reps)) return false;

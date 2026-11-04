@@ -1,3 +1,4 @@
+import CatalogStatus from './CatalogStatus';
 import { ScrollView, View } from 'react-native';
 import { useFavoriteFoods } from '../../hooks/useFavoriteFoods';
 import { useLogFood } from '../../hooks/useLogFood';
@@ -14,29 +15,31 @@ export default function FavoritesTab({
   slot?: number | null;
   onLogged: (item: MealTemplateItem) => void;
 }) {
-  const { favorites, isLoading, removeFavorite } = useFavoriteFoods(userId);
+  const { favorites, isLoading, error, refresh, removeFavorite } = useFavoriteFoods(userId);
   const logFood = useLogFood(userId);
+
+  if (isLoading || error) return <CatalogStatus loading={isLoading} error={error} onRetry={refresh} />;
 
   if (!isLoading && favorites.length === 0) {
     return (
       <EmptyTabState
         icon="heart-outline"
         title="No favorites yet"
-        description="Favorite a food from Custom or a past log to find it here quickly."
+        description="Long press a food in My foods to save it here."
       />
     );
   }
 
   return (
-    <ScrollView contentContainerClassName="p-4 gap-2">
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerClassName="p-4 gap-2">
       <View className="gap-2">
         {favorites.map((food) => (
           <FoodMacroRow
             key={food.id}
             name={food.name}
             macros={food}
-            onLog={() => {
-              void logFood(food.name, food, slot);
+            onLog={async () => {
+              await logFood(food.name, food, slot);
               onLogged({
                 name: food.name,
                 protein_g: food.protein_g,
@@ -45,7 +48,11 @@ export default function FavoritesTab({
                 calories: food.calories,
               });
             }}
-            onLongPress={() => void removeFavorite(food.id)}
+            longPressHint="Long press to remove from favorites"
+            onLongPress={async () => {
+              const result = await removeFavorite(food.id);
+              if (!result.ok) throw new Error(result.error ?? 'Could not remove favorite.');
+            }}
           />
         ))}
       </View>

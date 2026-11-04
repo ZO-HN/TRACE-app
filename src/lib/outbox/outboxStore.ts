@@ -28,7 +28,9 @@ export const useOutboxStore = create<OutboxState>((set, get) => ({
   items: [],
   hydrate: async () => { set({ items: await getAllOutboxItems() }); },
   enqueueSetLog: (payload, userId) => enqueue('set_logs', payload, userId),
-  enqueueNutritionLog: (payload) => enqueue('nutrition_logs', payload, payload.user_id),
+  enqueueNutritionLog: (payload) => enqueue('nutrition_logs', {
+    ...payload, logged_at: payload.logged_at ?? new Date().toISOString(),
+  }, payload.user_id),
   ensureSessionQueued: async (payload) => { await enqueue('workout_sessions', payload, payload.user_id); },
   pendingCount: () => get().items.filter((i) => i.status !== 'synced').length,
 }));

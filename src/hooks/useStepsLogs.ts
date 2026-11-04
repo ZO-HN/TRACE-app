@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { localDate } from '../lib/localDate';
 import { supabase } from '../lib/supabase';
+import { isValidSteps } from '../lib/health/inputValidation';
 
 export interface StepsEntry {
   id: string;
@@ -68,6 +69,9 @@ export function useStepsLogs(userId: string, limit = 30): UseStepsLogs {
 
   const logToday = useCallback(
     async (steps: number) => {
+      if (!isValidSteps(steps)) {
+        return { ok: false, error: 'Enter a whole-number step count from 0 to 200,000.' };
+      }
       const today = localDate();
       const { error: upsertError } = await supabase
         .from('wearable_biometrics')

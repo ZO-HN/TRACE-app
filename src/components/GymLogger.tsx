@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { AppState, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,6 +13,10 @@ import { isValidSetInput, toSetLogInsert } from '../lib/outbox/mapSetLog';
 import { predictNextSet, suggestNextSet } from '../lib/workout/suggestNextSet';
 import { lbsToKg, kgToLbs } from '../lib/units';
 import { createSessionDraft, sessionInsertFrom } from '../lib/workout/session';
+import { extendRestDeadline, restSecondsRemaining as getRestSecondsRemaining } from '../lib/workout/restTimer';
+import { activeWorkoutKey, parseActiveWorkout, recoverQueuedSets, WorkoutRecoveryError, type ActiveWorkoutDraft } from '../lib/workout/activeDraft';
+import { readActiveDraft, writeActiveDraft } from '../lib/workout/activeDraftStorage';
+import { getAllOutboxItems } from '../lib/outbox/db';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
 import { useLastSetsForExercises } from '../hooks/useLastSetsForExercises';
 import { useSetCalibration } from '../hooks/useSetCalibration';
@@ -98,6 +102,8 @@ export default function GymLogger({
   const saving = useRef(false);
   const logIds = useRef(new Map<string, string>());
   const loadedTemplate = useRef<string | null>(null);
+  const [draftReadyKey, setDraftReadyKey] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
   const lastSets = useLastSetsForExercises(userId, exerciseIds);
   const calibration = useSetCalibration();
 
@@ -107,10 +113,18 @@ export default function GymLogger({
   const [videoKeys, setVideoKeys] = useState<Record<string, string>>({});
   const [uploadingSetId, setUploadingSetId] = useState<string | null>(null);
   const [viewingSetId, setViewingSetId] = useState<string | null>(null);
+  const clipActive = useRef(false);
 
   const attachClip = async (setId: string) => {
+    if (clipActive.current) return;
+    clipActive.current = true;
+    setUploadingSetId(setId);
+    try {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return;
+    if (!perm.granted) {
+      setSaveError('Camera access is disabled. Enable it in your phone settings to record a form clip.');
+      return;
+    }
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['videos'],
@@ -132,13 +146,13 @@ export default function GymLogger({
       size,
     };
 
-    setUploadingSetId(setId);
-    try {
       const { key } = await media.upload(file, 'form-video');
       setVideoKeys((prev) => ({ ...prev, [setId]: key }));
-    } catch {
-      // media.error carries the message; surfaced below the form-clip button
+      setSaveError(null);
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : 'Could not record or upload your form clip. Please retry.');
     } finally {
+      clipActive.current = false;
       setUploadingSetId(null);
     }
   };
@@ -147,53 +161,101 @@ export default function GymLogger({
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restDeadline = useRef<number | null>(null);
+
+  const refreshRestTimer = () => {
+    const remaining = getRestSecondsRemaining(restDeadline.current, Date.now());
+    setRestSecondsRemaining(remaining);
+    if (restDeadline.current !== null && remaining === 0) {
+      restDeadline.current = null;
+      if (timerRef.current) clearInterval(timerRef.current);
+      setRestTimerActive(false);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    }
+  };
 
   // Adopt template content once it loads — but never clobber logged work.
   useEffect(() => {
-    if (!templateExercises) return;
-    if (loadedTemplate.current !== templateId) {
+    if (!templateExercises || !templateId) return;
+    if (loadedTemplate.current === templateId && sessionRef.current.userId === userId) return;
+    let cancelled = false;
+    loadedTemplate.current = null;
+    setSaveError(null);
+    setDraftReadyKey(null);
+    setExercises([]);
+    const key = activeWorkoutKey(userId, templateId);
+    void (async () => {
+      let restored: ActiveWorkoutDraft | null = null;
+      try {
+        restored = parseActiveWorkout(await readActiveDraft(key), userId, templateId);
+        if (restored) restored = recoverQueuedSets(restored, await getAllOutboxItems());
+      } catch (cause) {
+        if (!cancelled) setSaveError(cause instanceof WorkoutRecoveryError ? cause.message : 'Could not restore your workout. Retry loading before logging more sets.');
+        return;
+      }
+      if (cancelled) return;
       loadedTemplate.current = templateId;
+      sessionRef.current = restored?.session ?? createSessionDraft(userId, templateName ?? 'Workout', Date.now(), randomUUID());
+      logIds.current = new Map(restored?.logIds ?? []);
+      setExercises(restored?.exercises ?? templateExercises as Exercise[]);
+      setVideoKeys(restored?.videoKeys ?? {});
+      setDraftReadyKey(key);
+    })();
+    return () => { cancelled = true; };
+  }, [templateExercises, templateName, templateId, userId]);
+
+  useEffect(() => {
+    if (!templateId || draftReadyKey !== activeWorkoutKey(userId, templateId)
+      || sessionRef.current.userId !== userId) return;
+    const draft: ActiveWorkoutDraft = { version: 1, templateId, session: sessionRef.current,
+      exercises, logIds: [...logIds.current], videoKeys };
+    let cancelled = false;
+    void writeActiveDraft(draftReadyKey, JSON.stringify(draft)).catch(() => {
+      if (!cancelled) setSaveError('Could not save the workout draft. Completed sets remain in the log queue.');
+    });
+    return () => { cancelled = true; };
+  }, [exercises, videoKeys, draftReadyKey, userId, templateId]);
+
+  const finishWorkout = async () => {
+    if (saving.current || !templateId || !draftReadyKey || !exercises.some((e) => e.sets.some((s) => s.completed))) return;
+    saving.current = true;
+    setFinishing(true);
+    try {
+      await ensureSessionQueued(sessionInsertFrom(sessionRef.current, Date.now(), templateId));
+      await writeActiveDraft(draftReadyKey, null);
+      cancelRestTimer();
       sessionRef.current = createSessionDraft(userId, templateName ?? 'Workout', Date.now(), randomUUID());
       logIds.current.clear();
-      setExercises(templateExercises as Exercise[]);
       setVideoKeys({});
-      return;
-    }
-    setExercises((current) => {
-      const hasLoggedWork = current.some((e) => e.sets.some((s) => s.completed));
-      return hasLoggedWork ? current : (templateExercises as Exercise[]);
-    });
-    if (templateName) {
-      sessionRef.current = { ...sessionRef.current, sessionName: templateName };
-    }
-  }, [templateExercises, templateName, templateId, userId]);
+      setExercises(templateExercises as Exercise[]);
+      setSaveError(null);
+      router.push('/history');
+    } catch { setSaveError('Could not finish the workout. Your saved sets are still available; please retry.'); }
+    finally { saving.current = false; setFinishing(false); }
+  };
 
   const startRestTimer = (seconds: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
+    restDeadline.current = Date.now() + seconds * 1000;
     setRestSecondsRemaining(seconds);
     setRestTimerActive(true);
 
-    timerRef.current = setInterval(() => {
-      setRestSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setRestTimerActive(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    timerRef.current = setInterval(refreshRestTimer, 250);
   };
 
   const cancelRestTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    restDeadline.current = null;
     setRestTimerActive(false);
     setRestSecondsRemaining(0);
   };
 
   useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshRestTimer();
+    });
     return () => {
+      subscription.remove();
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
@@ -234,6 +296,10 @@ export default function GymLogger({
       if (!isValidSetInput(input)) { setSaveError('Enter a valid weight, reps or duration before saving.'); return; }
       saving.current = true;
       try {
+        await writeActiveDraft(activeWorkoutKey(userId, templateId), JSON.stringify({
+          version: 1, templateId, session: sessionRef.current, exercises,
+          logIds: [...logIds.current], videoKeys,
+        } satisfies ActiveWorkoutDraft));
         await ensureSessionQueued(sessionInsertFrom(sessionRef.current, Date.now(), templateId));
         await enqueueSetLog(toSetLogInsert(input), userId);
         setSaveError(null);
@@ -282,15 +348,19 @@ export default function GymLogger({
         {status === 'cached' && <Text className="text-gray-400">Offline · using your downloaded workout</Text>}
         {workoutError && <View><Text className="text-red-400">{workoutError}</Text><Pressable onPress={retry}><Text className="text-primary">Retry loading workout</Text></Pressable></View>}
         {saveError && <Text className="text-red-400">{saveError}</Text>}
+        {saveError && exercises.length === 0 && <Pressable onPress={retry} className="min-h-[44px] justify-center">
+          <Text className="text-primary">Retry workout</Text>
+        </Pressable>}
         {(status === 'ready' || status === 'cached') && exercises.map((exercise, eIndex) => (
           <FadeInView key={exercise.id} delay={eIndex * 60}>
             <Card className="overflow-hidden">
               <View className="bg-border/30 px-4 py-3 border-b border-border flex-row items-center justify-between gap-2">
-                <View className="flex-row items-center gap-2">
+                <View className="flex-row items-center gap-2 flex-1 min-w-0">
                   <Ionicons name="barbell-outline" size={16} color="#4ADE80" />
-                  <Text className="text-lg font-semibold text-white">{exercise.name}</Text>
+                  <Text className="text-lg font-semibold text-white flex-1">{exercise.name}</Text>
                 </View>
                 <Pressable
+                  disabled={exercise.sets.some((set) => set.completed)}
                   onPress={() =>
                     setExercises((current) =>
                       current.map((e, i) => (i === eIndex ? { ...e, isIsometric: !e.isIsometric } : e)),
@@ -402,6 +472,9 @@ export default function GymLogger({
                           className="flex-1 h-12 bg-background border border-border rounded-xl text-center text-white font-medium"
                         />
                         <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Complete set ${sIndex + 1} of ${exercise.name}`}
+                          disabled={set.completed || finishing}
                           onPress={() => updateSet(eIndex, sIndex, 'completed', !set.completed)}
                         >
                           <MotiView
@@ -422,13 +495,13 @@ export default function GymLogger({
 
                       {/* RPE chip row — a horizontal picker beats a native <select> for a
                           gym-floor, one-thumb interaction. */}
-                      <View className="flex-row gap-1.5 pl-10">
+                      <View className="flex-row flex-wrap gap-1.5 pl-10">
                         {Array.from({ length: 10 }, (_, i) => String(i + 1)).map((n) => (
                           <Pressable
                             key={n}
                             disabled={set.completed}
                             onPress={() => updateSet(eIndex, sIndex, 'rpe', n)}
-                            className={`w-7 h-7 rounded-md items-center justify-center ${
+                            className={`w-11 h-11 rounded-md items-center justify-center ${
                               set.rpe === n ? 'bg-primary' : 'bg-background border border-border'
                             }`}
                           >
@@ -530,6 +603,14 @@ export default function GymLogger({
           <Text className="text-xs text-red-400 text-center">{media.error}</Text>
         )}
 
+        {exercises.some((e) => e.sets.some((s) => s.completed)) && <Pressable
+          accessibilityRole="button" accessibilityLabel="Finish workout"
+          disabled={finishing} onPress={() => void finishWorkout()}
+          className="min-h-[48px] bg-primary rounded-xl flex-row items-center justify-center gap-2 px-4">
+          <Ionicons name="checkmark-circle-outline" size={20} color="white" />
+          <Text className="text-white font-semibold">{finishing ? 'Finishing...' : 'Finish workout'}</Text>
+        </Pressable>}
+
         {footer}
       </ScrollView>
 
@@ -567,7 +648,10 @@ export default function GymLogger({
               </View>
               <View className="flex-row gap-2">
                 <Pressable
-                  onPress={() => setRestSecondsRemaining((p) => p + 30)}
+                  onPress={() => {
+                    restDeadline.current = extendRestDeadline(restDeadline.current, Date.now(), 30);
+                    refreshRestTimer();
+                  }}
                   className="w-10 h-10 bg-background border border-border rounded-xl items-center justify-center"
                 >
                   <Text className="text-white text-xs font-medium">+30</Text>

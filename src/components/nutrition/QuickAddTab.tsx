@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useNutritionLogs } from '../../hooks/useNutritionLogs';
 import { useAICopilotConfig } from '../../hooks/useAICopilotConfig';
-import { parseQuickEntry } from '../../lib/nutrition/parseQuickEntry';
+import { hasAnyMacro, parseQuickEntry } from '../../lib/nutrition/parseQuickEntry';
 import { chatCompletion } from '../../lib/ai/client';
 import {
   buildMealPhotoScanMessages,
@@ -16,6 +16,7 @@ import {
 import type { MealTemplateItem } from '../../lib/nutrition/types';
 import VoiceInputButton from '../ai/VoiceInputButton';
 import Button from '../ui/Button';
+import { useAsyncAction } from '../../hooks/useAsyncAction';
 
 export default function QuickAddTab({
   userId,
@@ -29,7 +30,7 @@ export default function QuickAddTab({
   const { logEntry } = useNutritionLogs(userId);
   const { config, isConfigured } = useAICopilotConfig();
   const [text, setText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const action = useAsyncAction();
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,33 +42,32 @@ export default function QuickAddTab({
     parsed.calories != null && `${parsed.calories} kcal`,
   ].filter(Boolean) as string[];
 
-  const handleLog = async () => {
-    setSubmitting(true);
+  const handleLog = () => action.run(async () => {
     setError(null);
     const result = await logEntry(text, slot);
-    setSubmitting(false);
     if (result.ok) {
       onLogged({ name: text.trim(), ...parsed });
       setText('');
     } else {
       setError(result.error ?? 'Could not log that entry.');
     }
-  };
+  });
 
   const handleAIScan = async () => {
     if (!isConfigured || !config) {
       router.push('/ai-copilot/settings');
       return;
     }
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return;
-
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.5 });
-    if (result.canceled || !result.assets?.[0]) return;
-
     setScanning(true);
     setError(null);
     try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        setError('Camera access was not granted. You can still type your entry.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.5 });
+      if (result.canceled || !result.assets?.[0]) return;
       const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, {
         encoding: 'base64',
       });
@@ -90,39 +90,57 @@ export default function QuickAddTab({
   };
 
   return (
-    <View className="p-4 gap-3">
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 32 }}>
+      <View className="gap-1">
+        <Text accessibilityRole="header" className="text-lg font-bold text-white">Quick entry</Text>
+        <Text className="text-sm text-gray-400">Use the values on your food label. A food name alone won't calculate nutrition.</Text>
+      </View>
+      <Text className="text-sm font-semibold text-gray-200">Food and nutrition</Text>
       <View className="flex-row items-center gap-2">
         <TextInput
+          accessibilityLabel="Food and nutrition"
+          accessibilityHint="Include calories or macros, for example yogurt, 150 kcal, 20g protein"
+          editable={!action.pending && !scanning}
+          multiline
+          textAlignVertical="top"
+          style={{ minHeight: 112 }}
           value={text}
           onChangeText={setText}
-          placeholder="e.g. 80g protein, 40g carbs, 20g fat, 650 kcal"
+          placeholder="e.g. Yogurt, 150 kcal, 20g protein, 10g carbs, 3g fat"
           placeholderTextColor="#6B7280"
-          className="flex-1 h-11 bg-surface border border-border rounded-xl px-3 text-white"
+          className="flex-1 bg-surface border border-border rounded-xl p-3 text-white"
         />
         <VoiceInputButton onTranscribed={setText} onError={setError} />
       </View>
-      <Button
-        variant="secondary"
-        size="sm"
-        onPress={() => void handleAIScan()}
-        loading={scanning}
-        icon={<Ionicons name="camera-outline" size={14} color="#E5E7EB" />}
-      >
-        {isConfigured ? 'Scan photo with AI' : 'Set up AI Copilot to scan photos'}
-      </Button>
       {chips.length > 0 && (
-        <View className="flex-row flex-wrap gap-1.5">
+        <View className="gap-2">
+          <Text className="text-sm text-gray-400">Review values to log · only entered values are saved</Text>
+          <View className="flex-row flex-wrap gap-1.5">
           {chips.map((chip) => (
             <View key={chip} className="bg-primary/10 px-2 py-1 rounded-full">
               <Text className="text-primary text-xs font-semibold">{chip}</Text>
             </View>
           ))}
+          </View>
         </View>
       )}
-      {error && <Text className="text-xs text-red-400">{error}</Text>}
-      <Button onPress={() => void handleLog()} loading={submitting} disabled={text.trim().length === 0} fullWidth>
-        Log entry
+      {text.trim().length > 0 && !hasAnyMacro(parsed) && <Text className="text-sm text-amber-300">{parsed.error ?? 'Enter non-negative values, such as 150 kcal or 20g protein.'}</Text>}
+      {(error || action.error) && <Text accessibilityRole="alert" className="text-sm text-red-400">{error ?? action.error}</Text>}
+      <Button onPress={() => void handleLog()} loading={action.pending} disabled={!hasAnyMacro(parsed) || scanning} fullWidth>
+        Save entry
       </Button>
-    </View>
+      <Text className="text-xs text-gray-400">Food logs save on this device first, including offline.</Text>
+      <Button
+        variant="secondary"
+        size="sm"
+        onPress={() => void handleAIScan()}
+        loading={scanning}
+        disabled={action.pending}
+        icon={<Ionicons name="camera-outline" size={14} color="#E5E7EB" />}
+      >
+        {isConfigured ? 'Scan photo with AI' : 'Set up AI Copilot to scan photos'}
+      </Button>
+      <Text className="text-xs text-gray-400">Photo estimates need a connection. Review the values before saving.</Text>
+    </ScrollView>
   );
 }

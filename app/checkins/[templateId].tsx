@@ -10,6 +10,7 @@ import QuestionField from '../../src/components/checkins/QuestionField';
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
 import Button from '../../src/components/ui/Button';
 import Skeleton from '../../src/components/ui/Skeleton';
+import { useAsyncAction } from '../../src/hooks/useAsyncAction';
 
 export default function FillCheckInScreen() {
   const { templateId } = useLocalSearchParams<{ templateId: string }>();
@@ -20,7 +21,7 @@ export default function FillCheckInScreen() {
   const template = useMemo(() => templates.find((t) => t.id === templateId), [templates, templateId]);
 
   const [responses, setResponses] = useState<CheckInResponses>({});
-  const [submitting, setSubmitting] = useState(false);
+  const action = useAsyncAction();
   const [error, setError] = useState<string | null>(null);
 
   const setAnswer = (questionId: string, value: CheckInAnswerValue) => {
@@ -31,15 +32,13 @@ export default function FillCheckInScreen() {
     (q) => q.required && !isQuestionAnswered(q, responses[q.id] ?? null),
   );
 
-  const handleSubmit = async () => {
-    if (!template) return;
-    setSubmitting(true);
+  const handleSubmit = () => action.run(async () => {
+    if (!template || missingRequired) return;
     setError(null);
     const result = await submit(template.id, responses);
-    setSubmitting(false);
     if (result.ok) router.replace('/checkins');
     else setError(result.error ?? 'Could not submit that check-in.');
-  };
+  });
 
   if (isLoading) {
     return (
@@ -78,9 +77,9 @@ export default function FillCheckInScreen() {
           <QuestionField key={q.id} question={q} value={responses[q.id] ?? null} onChange={(v) => setAnswer(q.id, v)} />
         ))}
 
-        {error && <Text className="text-xs text-red-400">{error}</Text>}
+        {(error || action.error) && <Text className="text-xs text-red-400">{error ?? action.error}</Text>}
 
-        <Button fullWidth size="lg" onPress={() => void handleSubmit()} loading={submitting} disabled={missingRequired}>
+        <Button fullWidth size="lg" onPress={() => void handleSubmit()} loading={action.pending} disabled={missingRequired}>
           Submit check-in
         </Button>
       </ScrollView>

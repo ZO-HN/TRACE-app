@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getWeightUnitPreference, setWeightUnitPreference, type WeightUnit } from '../lib/units/preference';
+import { getWeightUnitPreference, setWeightUnitPreference, subscribeWeightUnit, type WeightUnit } from '../lib/units/preference';
 
 export interface UseUnitPreference {
   unit: WeightUnit;
-  setUnit: (unit: WeightUnit) => void;
+  setUnit: (unit: WeightUnit) => Promise<void>;
   isLoaded: boolean;
 }
 
@@ -13,20 +13,26 @@ export function useUnitPreference(): UseUnitPreference {
 
   useEffect(() => {
     let cancelled = false;
+    let changed = false;
+    const unsubscribe = subscribeWeightUnit((next) => {
+      changed = true;
+      setUnitState(next);
+      setIsLoaded(true);
+    });
     void getWeightUnitPreference().then((u) => {
-      if (!cancelled) {
+      if (!cancelled && !changed) {
         setUnitState(u);
         setIsLoaded(true);
       }
     });
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 
-  const setUnit = useCallback((next: WeightUnit) => {
-    setUnitState(next);
-    void setWeightUnitPreference(next);
+  const setUnit = useCallback(async (next: WeightUnit) => {
+    await setWeightUnitPreference(next);
   }, []);
 
   return { unit, setUnit, isLoaded };

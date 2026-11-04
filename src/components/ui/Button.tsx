@@ -20,7 +20,7 @@ interface ButtonProps {
 }
 
 const SIZE_STYLES: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3',
+  sm: 'h-11 px-3',
   md: 'h-11 px-4',
   lg: 'h-14 px-6',
 };
@@ -81,7 +81,7 @@ export default function Button({
   ) : (
     <>
       {icon}
-      <Text className={`${TEXT_SIZE[size]} font-semibold ${TEXT_COLOR[variant]}`}>{children}</Text>
+      <Text style={{ flexShrink: 1, textAlign: 'center' }} className={`${TEXT_SIZE[size]} font-semibold ${TEXT_COLOR[variant]}`}>{children}</Text>
     </>
   );
 
@@ -90,14 +90,17 @@ export default function Button({
       <AnimatedPressable
         onPress={onPress}
         disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: Boolean(isDisabled), busy: Boolean(loading) }}
         {...pressHandlers}
-        style={animatedStyle}
+        style={[{ borderRadius: 16, overflow: 'hidden', minHeight: size === 'lg' ? 56 : 44 }, animatedStyle]}
         className={`${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''} rounded-xl overflow-hidden`}
       >
         <LinearGradient
           colors={['#4ADE80', '#22C55E']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
+          style={{ minHeight: size === 'lg' ? 56 : 44, paddingHorizontal: size === 'lg' ? 24 : 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16 }}
           className={`${SIZE_STYLES[size]} flex-row items-center justify-center gap-2`}
         >
           {label}
@@ -110,8 +113,10 @@ export default function Button({
     <AnimatedPressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(isDisabled), busy: Boolean(loading) }}
       {...pressHandlers}
-      style={animatedStyle}
+      style={[{ borderRadius: 16, minHeight: size === 'lg' ? 56 : 44 }, animatedStyle]}
       className={`${SIZE_STYLES[size]} ${VARIANT_STYLES[variant]} rounded-xl flex-row items-center justify-center gap-2 ${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''}`}
     >
       {label}

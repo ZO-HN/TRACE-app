@@ -5,6 +5,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import type { AICopilotConfig } from './types';
+import { validateAIConfig } from './types';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -30,29 +31,42 @@ export async function chatCompletion(
   config: AICopilotConfig,
   messages: ChatMessage[],
 ): Promise<ChatCompletionResult | ChatCompletionError> {
+  const invalid = validateAIConfig(config);
+  if (invalid) return { ok: false, error: invalid };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+    const claude = config.provider === 'anthropic';
+    const claudeContent = (content: ChatMessage['content']) => typeof content === 'string' ? content : content.map((part) => {
+      if (part.type === 'text') return part;
+      const match = part.image_url.url.match(/^data:([^;]+);base64,(.+)$/s);
+      return { type: 'image', source: match ? { type: 'base64', media_type: match[1], data: match[2] } : { type: 'url', url: part.image_url.url } };
+    });
+    const res = await fetch(`${config.baseUrl.replace(/\/+$/, '')}/${claude ? 'messages' : 'chat/completions'}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
+        ...(claude ? { 'x-api-key': config.apiKey.trim(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } : { Authorization: `Bearer ${config.apiKey.trim()}` }),
       },
-      body: JSON.stringify({ model: config.model, messages }),
+      body: JSON.stringify(claude ? {
+        model: config.model.trim(), max_tokens: 2048,
+        system: messages.filter((message) => message.role === 'system').map((message) => typeof message.content === 'string' ? message.content : '').join('\n'),
+        messages: messages.filter((message) => message.role !== 'system').map((message) => ({ role: message.role, content: claudeContent(message.content) })),
+      } : { model: config.model.trim(), messages }),
       signal: controller.signal,
     });
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      return { ok: false, error: `${res.status} ${res.statusText}${body ? `: ${body.slice(0, 200)}` : ''}` };
+      const hint = res.status === 401 || res.status === 403 ? 'Check your API key and model permissions.' : res.status === 429 ? 'API quota or rate limit reached. Check provider billing or try again later.' : res.status === 404 ? 'Model or endpoint not found. Check the model ID.' : 'Provider request failed. Try again later.';
+      return { ok: false, error: `${res.status}: ${hint}` };
     }
 
     const json = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
+      content?: { type: string; text?: string }[];
     };
-    const content = json.choices?.[0]?.message?.content;
+    const content = claude ? json.content?.filter((part) => part.type === 'text').map((part) => part.text ?? '').join('\n') : json.choices?.[0]?.message?.content;
     if (!content) return { ok: false, error: 'No response content from the model.' };
 
     return { ok: true, content };
@@ -83,6 +97,9 @@ export async function transcribeAudio(
   fileUri: string,
   mimeType: string,
 ): Promise<TranscriptionResult | TranscriptionError> {
+  if (config.provider === 'gemini' || config.provider === 'anthropic') return { ok: false, error: 'Voice transcription is not supported by this provider integration. Use text input.' };
+  const invalid = validateAIConfig(config);
+  if (invalid) return { ok: false, error: invalid };
   try {
     const result = await FileSystem.uploadAsync(
       `${config.baseUrl.replace(/\/$/, '')}/audio/transcriptions`,

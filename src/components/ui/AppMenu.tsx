@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { useAsyncAction } from '../../hooks/useAsyncAction';
 
 function comingSoon(feature: string) {
   Alert.alert('Coming soon', `${feature} isn't available yet.`);
@@ -63,6 +64,7 @@ function ExpandableRow({
 }
 
 export default function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const signOutAction = useAsyncAction();
   const [trainingOpen, setTrainingOpen] = useState(true);
   const [physiqueOpen, setPhysiqueOpen] = useState(true);
 
@@ -76,7 +78,7 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
       <Pressable className="flex-1 bg-black/60" onPress={onClose}>
         <Pressable className="absolute left-0 top-0 bottom-0 w-[78%] bg-background border-r border-border" onPress={() => {}}>
           <ScrollView contentContainerClassName="pt-14 pb-8">
-            <MenuRow icon="person-outline" label="Account" onPress={() => comingSoon('Account settings')} />
+            <MenuRow icon="person-outline" label="Account" onPress={() => go('/account')} />
             <MenuRow icon="notifications-outline" label="Notifications" onPress={() => go('/notifications')} />
 
             <ExpandableRow
@@ -111,15 +113,21 @@ export default function AppMenu({ visible, onClose }: { visible: boolean; onClos
             </ExpandableRow>
 
             <View className="mt-4 px-4">
+              {signOutAction.error && <Text accessibilityRole="alert" className="text-red-400 text-sm">{signOutAction.error}</Text>}
               <Pressable
-                onPress={() => {
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+                accessibilityState={{ disabled: signOutAction.pending, busy: signOutAction.pending }}
+                disabled={signOutAction.pending}
+                onPress={() => signOutAction.run(async () => {
+                  const { error } = await supabase.auth.signOut();
+                  if (error) throw error;
                   onClose();
-                  void supabase.auth.signOut();
-                }}
+                })}
                 className="flex-row items-center gap-2 py-3"
               >
                 <Ionicons name="log-out-outline" size={16} color="#F87171" />
-                <Text className="text-red-400 font-medium">Sign out</Text>
+                <Text className="text-red-400 font-medium">{signOutAction.pending ? 'Signing out...' : 'Sign out'}</Text>
               </Pressable>
             </View>
           </ScrollView>

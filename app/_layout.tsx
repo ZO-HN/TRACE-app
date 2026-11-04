@@ -11,31 +11,18 @@ import { isSupabaseConfigured, supabase } from '../src/lib/supabase';
 import AuthScreen from '../src/components/auth/AuthScreen';
 import ChooseCoachScreen from '../src/components/auth/ChooseCoachScreen';
 import { TraceUserProvider } from '../src/context/TraceUserContext';
+import { isDevPreview, previewUser } from '../src/lib/devPreview';
 
-// Google sign-in is account-level, shared across this Supabase project —
-// it has no concept of "which app" a user came from. A coach who signs
-// into this trainee app with the same Google account they use on the
-// dashboard resolves to their existing coach profile (matched by email),
-// not a new trainee account. Without this screen, that profile fell
-// straight through into the full trainee UI: workout/nutrition/bodyweight
-// writes would silently succeed under the coach's own user_id (polluting
-// their coach account with trainee-style data), while Form Checks and
-// Check-ins would fail outright (their BEFORE INSERT triggers require
-// profiles.coach_id, which is null for a coach). Block it here instead,
-// before any of that can happen.
-function CoachAccountBlocked() {
-  return (
-    <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
-      <Ionicons name="business-outline" size={32} color="#6B7280" />
-      <Text className="text-xl font-bold text-white mt-4 mb-2 text-center">This is a coach account</Text>
-      <Text className="text-sm text-gray-400 text-center mb-6">
-        TRACE for trainees doesn't support coach accounts. Use the coach dashboard instead.
-      </Text>
-      <Pressable onPress={() => void supabase.auth.signOut()}>
-        <Text className="text-primary font-medium">Sign out</Text>
-      </Pressable>
-    </SafeAreaView>
-  );
+function PreviewGate({ children }: { children: React.ReactNode }) {
+  useOutboxSync(null);
+  return <TraceUserProvider value={previewUser}>
+    <View className="flex-1 bg-background">
+      <SafeAreaView edges={['top']} className="bg-surface px-4 py-2">
+        <Text className="text-sm text-primary">Local preview - cloud features require login</Text>
+      </SafeAreaView>
+      {children}
+    </View>
+  </TraceUserProvider>;
 }
 
 function ConfigurationError() {
@@ -90,14 +77,10 @@ function Gate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (profile.role === 'coach') {
-    return <CoachAccountBlocked />;
-  }
-
   // Blocks everything below this point — no tabs, no dashboard reads — until
   // the trainee has a coach.
   if (!profile.coach_id) {
-    return <ChooseCoachScreen onLinked={() => void traceUser.refetchProfile()} />;
+    return <ChooseCoachScreen onLinked={() => void traceUser.refetchProfile().catch(() => undefined)} />;
   }
 
   return <TraceUserProvider value={traceUser}>
@@ -113,7 +96,8 @@ function Gate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
-  if (!isSupabaseConfigured) {
+  const AppGate = isDevPreview ? PreviewGate : Gate;
+  if (!isSupabaseConfigured && !isDevPreview) {
     return (
       <SafeAreaProvider>
         <ConfigurationError />
@@ -123,7 +107,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Gate>
+      <AppGate>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="history" options={{ presentation: 'card' }} />
@@ -141,7 +125,7 @@ export default function RootLayout() {
           <Stack.Screen name="workouts/folders/new" options={{ presentation: 'modal' }} />
           <Stack.Screen name="nutrition/add-meal" options={{ presentation: 'modal' }} />
         </Stack>
-      </Gate>
+      </AppGate>
     </SafeAreaProvider>
   );
 }

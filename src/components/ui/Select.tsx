@@ -11,10 +11,12 @@ export default function Select<T extends string>({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   value: T;
   options: SelectOption<T>[];
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
@@ -22,6 +24,9 @@ export default function Select<T extends string>({
   return (
     <>
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         onPress={() => setOpen(true)}
         className="flex-row items-center justify-between bg-surface border border-border rounded-xl px-4 py-3"
       >
@@ -37,6 +42,7 @@ export default function Select<T extends string>({
           <View className="w-full bg-surface border border-border rounded-2xl overflow-hidden">
             {options.map((option) => (
               <Pressable
+                disabled={disabled}
                 key={option.value}
                 onPress={() => {
                   onChange(option.value);

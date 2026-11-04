@@ -6,6 +6,7 @@ export type NutritionMethod = 'TYPED' | 'BARCODE' | 'PHOTO';
 
 export interface NutritionLogInsert {
   id: string;
+  logged_at?: string;
   user_id: string;
   method: NutritionMethod;
   description?: string | null;

@@ -17,10 +17,10 @@ const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function BodyweightHistoryScreen() {
   const { profile } = useTraceUserContext();
-  const { entries, isLoading } = useBodyweightLogs(profile!.id, 365);
+  const { entries, isLoading, error } = useBodyweightLogs(profile!.id, 365);
   const { settings } = useBodyweightSettings(profile!.id);
   const { unit } = useUnitPreference();
-  const [view, setView] = useState<'list' | 'chart'>('list');
+  const [view, setView] = useState<'list' | 'chart'>('chart');
   const window = settings.movingAverageWindow;
 
   const fmt = (n: number | null): string => (n === null ? '-' : formatWeightKg(n, unit).value.toFixed(1));
@@ -36,7 +36,7 @@ export default function BodyweightHistoryScreen() {
         title="Bodyweight"
         right={
           <>
-            <Pressable onPress={() => setView((v) => (v === 'list' ? 'chart' : 'list'))}>
+            <Pressable accessibilityLabel={view === 'chart' ? 'Show weigh-in list' : 'Show weight graph'} onPress={() => setView((v) => (v === 'list' ? 'chart' : 'list'))}>
               <Ionicons
                 name={view === 'chart' ? 'list-outline' : 'bar-chart-outline'}
                 size={20}
@@ -50,6 +50,7 @@ export default function BodyweightHistoryScreen() {
         }
       />
 
+      {error && <Text className="text-red-400 px-4 py-2">{error}</Text>}
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <Text className="text-gray-500">Loading…</Text>
@@ -59,7 +60,7 @@ export default function BodyweightHistoryScreen() {
           <Ionicons name="body-outline" size={32} color="#6B7280" />
           <Text className="text-lg font-bold text-white">No weigh-ins yet</Text>
           <Text className="text-sm text-gray-500 text-center">
-            Log a weigh-in from the Progress tab to start tracking.
+            Log a weigh-in from the dashboard to start tracking.
           </Text>
         </View>
       ) : view === 'chart' ? (

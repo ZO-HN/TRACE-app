@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Pressable,
   Platform,
   ScrollView,
   Text,
@@ -34,6 +35,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
@@ -103,14 +105,27 @@ export default function AuthScreen() {
             keyboardType="email-address"
           />
 
-          <InputField
-            icon="lock-closed-outline"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            secureTextEntry
-            autoComplete="current-password"
-          />
+          <View className="flex-row items-center bg-surface border border-border rounded-xl px-3 mb-3">
+            <Ionicons name="lock-closed-outline" size={18} color="#6B7280" />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor="#6B7280"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="current-password"
+              className="flex-1 h-12 px-2.5 text-white"
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              onPress={() => setShowPassword((visible) => !visible)}
+              hitSlop={10}
+            >
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={19} color="#9CA3AF" />
+            </Pressable>
+          </View>
 
           {error && (
             <MotiView

@@ -64,7 +64,6 @@ export function useBodyweightSettings(userId: string): UseBodyweightSettings {
   const update = useCallback(
     async (patch: Partial<BodyweightSettings>) => {
       const next = { ...settings, ...patch };
-      setSettings(next); // optimistic — local UI always reflects the change
 
       const { error } = await supabase.from('bodyweight_settings').upsert(
         {
@@ -78,15 +77,14 @@ export function useBodyweightSettings(userId: string): UseBodyweightSettings {
 
       if (error) {
         if (error.code === TABLE_MISSING_CODE) {
-          // Table not applied yet — this session's change still "sticks"
-          // locally, it just won't survive a reload until the migration lands.
           setIsPersisted(false);
-          return { ok: true };
+          return { ok: false, error: 'Bodyweight settings could not be saved. Please try again later.' };
         }
         return { ok: false, error: error.message };
       }
 
       setIsPersisted(true);
+      setSettings(next);
       return { ok: true };
     },
     [settings, userId],

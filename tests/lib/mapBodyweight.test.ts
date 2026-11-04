@@ -19,6 +19,9 @@ describe('isValidBodyweightLbs', () => {
 });
 
 describe('toBodyweightLogInsert', () => {
+  it('preserves kilogram precision without a pounds round trip', () => {
+    expect(toBodyweightLogInsert('bw-kg', 'user-1', 70.25, '2026-10-23', undefined, 'kg').weight_kg).toBe(70.25);
+  });
   it('converts lbs to kg and carries the date through', () => {
     const payload = toBodyweightLogInsert('bw-1', 'user-1', 185, '2026-08-03');
     expect(payload).toEqual({

@@ -1,8 +1,7 @@
-// Validate + map a quick bodyweight entry (lbs, from the UI) into a
-// bodyweight_logs insert payload (kg, matching set_logs.weight_kg's
-// convention). Mirrors outbox/mapSetLog.ts's isValid*/to*Insert pairing.
+// Map a bodyweight entry to stored kilograms. Existing callers default to
+// pounds; explicit kilograms avoid a lossy display-unit round trip.
 
-import { lbsToKg } from '../units';
+import { parseWeightToKg, type WeightDisplayUnit } from '../units';
 import type { BodyweightLogInsert } from './types';
 
 // Generous human range with headroom either side — matches the DB's
@@ -17,15 +16,16 @@ export function isValidBodyweightLbs(lbs: number): boolean {
 export function toBodyweightLogInsert(
   id: string,
   userId: string,
-  weightLbs: number,
+  weight: number,
   recordedDate: string,
   note?: string | null,
+  unit: WeightDisplayUnit = 'lbs',
 ): BodyweightLogInsert {
   return {
     id,
     user_id: userId,
     recorded_date: recordedDate,
-    weight_kg: lbsToKg(weightLbs),
+    weight_kg: parseWeightToKg(weight, unit),
     note: note?.trim() || null,
   };
 }

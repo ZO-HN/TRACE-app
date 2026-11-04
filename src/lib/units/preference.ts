@@ -10,6 +10,12 @@ export type WeightUnit = 'lbs' | 'kg';
 
 const STORAGE_KEY = 'trace.weightUnitPreference.v1';
 const DEFAULT_UNIT: WeightUnit = 'lbs';
+const listeners = new Set<(unit: WeightUnit) => void>();
+
+export function subscribeWeightUnit(listener: (unit: WeightUnit) => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 
 export async function getWeightUnitPreference(): Promise<WeightUnit> {
   try {
@@ -21,9 +27,6 @@ export async function getWeightUnitPreference(): Promise<WeightUnit> {
 }
 
 export async function setWeightUnitPreference(unit: WeightUnit): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, unit);
-  } catch {
-    // Best-effort — a failed write just means the preference resets to lbs.
-  }
+  await AsyncStorage.setItem(STORAGE_KEY, unit);
+  listeners.forEach((listener) => listener(unit));
 }

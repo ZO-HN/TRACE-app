@@ -5,7 +5,7 @@ import { useExerciseCatalog } from '../../src/hooks/useExerciseCatalog';
 import Card from '../../src/components/ui/Card';
 
 export default function LeaderboardsTab() {
-  const { rows, isLoaded } = useExerciseCatalog();
+  const { rows, isLoaded, error, retry } = useExerciseCatalog();
 
   return (
     <View className="flex-1">
@@ -19,6 +19,11 @@ export default function LeaderboardsTab() {
       {!isLoaded ? (
         <View className="flex-1 items-center justify-center">
           <Text className="text-gray-500">Loading exercises…</Text>
+        </View>
+      ) : error ? (
+        <View className="p-4 gap-2">
+          <Text className="text-red-400">{error}</Text>
+          <Pressable onPress={retry}><Text className="text-primary">Retry loading exercises</Text></Pressable>
         </View>
       ) : rows.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6 gap-2">

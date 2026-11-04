@@ -9,6 +9,7 @@ import { PROGRAM_CATEGORIES, SPLIT_TEMPLATES, type SplitType } from '../../src/l
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
 import Select from '../../src/components/ui/Select';
 import Button from '../../src/components/ui/Button';
+import { useAsyncAction } from '../../src/hooks/useAsyncAction';
 
 const INPUT_CLASS = 'bg-surface border border-border rounded-xl px-4 py-3 text-white';
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -25,7 +26,7 @@ export default function NewProgramScreen() {
   const [splitType, setSplitType] = useState<SplitType>('full_body');
   const [totalWeeks, setTotalWeeks] = useState('6');
   const [pattern, setPattern] = useState<(string | null)[]>(Array(7).fill(null));
-  const [submitting, setSubmitting] = useState(false);
+  const action = useAsyncAction();
   const [error, setError] = useState<string | null>(null);
 
   const splitHint = useMemo(() => SPLIT_TEMPLATES.find((s) => s.value === splitType)?.days ?? [], [splitType]);
@@ -35,12 +36,11 @@ export default function NewProgramScreen() {
     ...templates.map((t) => ({ value: t.id, label: t.name })),
   ];
 
-  const handleSubmit = async () => {
-    const weeks = parseInt(totalWeeks, 10);
+  const handleSubmit = () => action.run(async () => {
+    const weeks = Number(totalWeeks);
     if (!name.trim()) return setError('Program name is required.');
-    if (!Number.isFinite(weeks) || weeks < 1 || weeks > 52) return setError('Weeks must be between 1 and 52.');
+    if (!Number.isInteger(weeks) || weeks < 1 || weeks > 52) return setError('Weeks must be a whole number between 1 and 52.');
 
-    setSubmitting(true);
     setError(null);
     const result = await createProgram({
       name,
@@ -50,10 +50,9 @@ export default function NewProgramScreen() {
       totalWeeks: weeks,
       weeklyPattern: pattern,
     });
-    setSubmitting(false);
     if (result.ok) router.replace(`/programs/${result.programId}`);
     else setError(result.error ?? 'Could not create that program.');
-  };
+  });
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -130,9 +129,9 @@ export default function NewProgramScreen() {
           ))}
         </View>
 
-        {error && <Text className="text-xs text-red-400">{error}</Text>}
+        {(error || action.error) && <Text className="text-xs text-red-400">{error ?? action.error}</Text>}
 
-        <Button fullWidth size="lg" onPress={() => void handleSubmit()} loading={submitting}>
+        <Button fullWidth size="lg" onPress={() => void handleSubmit()} loading={action.pending}>
           Create program
         </Button>
       </ScrollView>

@@ -39,12 +39,12 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+/artifacts
 
-# AI agents, tools, skills & configs
+# Local AI tools, skills & configs (AGENTS.md is versioned)
 .agents/
 .claude/
 CLAUDE.md
-AGENTS.md
 skills-lock.json
 
 # Ephemeral AI handoffs, agent prompts & session TODOs

@@ -6,10 +6,17 @@ import { useNotificationSettings } from '../src/hooks/useNotificationSettings';
 import ScreenHeader from '../src/components/ui/ScreenHeader';
 import Card from '../src/components/ui/Card';
 import Switch from '../src/components/ui/Switch';
+import { useAsyncAction } from '../src/hooks/useAsyncAction';
+import type { NotificationSettings } from '../src/lib/notifications/quietHours';
 
 function QuietHoursSettings() {
   const { profile } = useTraceUserContext();
-  const { settings, update } = useNotificationSettings(profile!.id);
+  const { settings, update, isLoading } = useNotificationSettings(profile!.id);
+  const action = useAsyncAction();
+  const save = (patch: Partial<NotificationSettings>) => action.run(async () => {
+    const result = await update(patch);
+    if (!result.ok) throw new Error(result.error);
+  });
 
   return (
     <Card className="p-4 gap-3 mx-4 mb-2">
@@ -23,17 +30,20 @@ function QuietHoursSettings() {
         <Text className="text-sm text-gray-300">Enable quiet hours</Text>
         <Switch
           value={settings.quietHoursEnabled}
-          onValueChange={(v) => void update({ quietHoursEnabled: v })}
+          disabled={isLoading || action.pending}
+          onValueChange={(v) => void save({ quietHoursEnabled: v,
+            quietHoursStart: settings.quietHoursStart ?? '22:00', quietHoursEnd: settings.quietHoursEnd ?? '07:00' })}
         />
       </View>
       <View className="flex-row items-center justify-between">
         <Text className="text-sm text-gray-300">Mute personal chat</Text>
-        <Switch value={settings.mutePersonal} onValueChange={(v) => void update({ mutePersonal: v })} />
+        <Switch value={settings.mutePersonal} disabled={isLoading || action.pending} onValueChange={(v) => void save({ mutePersonal: v })} />
       </View>
       <View className="flex-row items-center justify-between">
         <Text className="text-sm text-gray-300">Mute coaching alerts</Text>
-        <Switch value={settings.muteCoaching} onValueChange={(v) => void update({ muteCoaching: v })} />
+        <Switch value={settings.muteCoaching} disabled={isLoading || action.pending} onValueChange={(v) => void save({ muteCoaching: v })} />
       </View>
+      {action.error && <Text className="text-xs text-red-400">{action.error}</Text>}
     </Card>
   );
 }

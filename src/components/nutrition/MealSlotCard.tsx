@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { MealSlotEntry } from '../../lib/nutrition/mealSlots';
@@ -29,7 +29,7 @@ export default function MealSlotCard({
     <Card className="overflow-hidden">
       <View className="flex-row items-center gap-2 px-3 py-3">
         {hasEntries && (
-          <Pressable onPress={() => setExpanded((v) => !v)}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} meal ${slotNumber}`} accessibilityState={{ expanded }} hitSlop={8} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }} onPress={() => setExpanded((v) => !v)}>
             <Ionicons name={expanded ? 'chevron-down' : 'chevron-forward'} size={16} color="#9CA3AF" />
           </Pressable>
         )}
@@ -42,22 +42,19 @@ export default function MealSlotCard({
             </View>
           </View>
           {hasEntries && (
-            <Text className="text-xs text-gray-500 mt-1">
-              {totals.calories} kcal · {totals.protein_g}P · {totals.carbs_g}C · {totals.fat_g}F
+            <Text className="text-xs text-gray-400 mt-1">
+              {Math.round(totals.calories)} kcal · {Number(totals.protein_g.toFixed(1))}g protein · {Number(totals.carbs_g.toFixed(1))}g carbs · {Number(totals.fat_g.toFixed(1))}g fat
             </Text>
           )}
+          {!hasEntries && <Text className="text-xs text-gray-400 mt-1">No food yet</Text>}
         </View>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Add food to meal ${slotNumber}`}
+          style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
           onPress={() => router.push({ pathname: '/nutrition/add-meal', params: { slot: String(slotNumber) } })}
         >
           <Ionicons name="add" size={20} color="#E5E7EB" />
-        </Pressable>
-        <Pressable
-          onPress={() =>
-            Alert.alert('Coming soon', 'Renaming/deleting individual entries isn’t available yet.')
-          }
-        >
-          <Ionicons name="ellipsis-vertical" size={16} color="#6B7280" />
         </Pressable>
       </View>
 
@@ -71,8 +68,11 @@ export default function MealSlotCard({
               <View className="w-8 h-8 rounded-full bg-background border border-border items-center justify-center">
                 <Ionicons name="restaurant-outline" size={14} color="#9CA3AF" />
               </View>
-              <Text className="flex-1 text-sm text-white">{e.description ?? 'Entry'}</Text>
-              <Text className="text-sm text-gray-400">{e.calories ?? 0} kcal</Text>
+              <View className="flex-1 gap-1">
+                <Text className="text-sm text-white">{e.description ?? 'Entry'}</Text>
+                <Text className="text-xs text-gray-400">{e.calories == null ? 'Energy not entered' : `${Math.round(e.calories)} kcal`}</Text>
+                {e.syncStatus && e.syncStatus !== 'synced' && <Text className="text-xs text-amber-300">{e.syncStatus === 'failed' ? 'Saved on device · sync failed' : 'Saved on device · pending sync'}</Text>}
+              </View>
             </View>
           ))}
         </View>

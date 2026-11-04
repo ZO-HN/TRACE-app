@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import { isDevPreview, previewFetch } from './devPreview';
 
 const extra = Constants.expoConfig?.extra ?? {};
 export const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? extra.supabaseUrl) as
@@ -21,10 +22,12 @@ export const supabase = createClient(
   supabaseUrl ?? 'https://placeholder-project.supabase.co',
   supabaseAnonKey ?? 'placeholder-anon-key',
   {
+    ...(isDevPreview ? { global: { fetch: previewFetch } } : {}),
     auth: {
       storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
+      autoRefreshToken: !isDevPreview,
+      persistSession: !isDevPreview,
+      ...(isDevPreview ? { storageKey: 'trace-preview-auth' } : {}),
       detectSessionInUrl: false,
     },
   },

@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 import type { RNFile } from '../../lib/storage/uploadMedia';
 import { parseChoiceOptions, type CheckInAnswerValue, type CheckInQuestion } from '../../lib/checkins/types';
+import { useAsyncAction } from '../../hooks/useAsyncAction';
 
 const INPUT_CLASS = 'bg-surface border border-border rounded-xl px-4 py-3 text-white';
 
@@ -45,7 +46,7 @@ function NumberField({ question, value, onChange, keyboardType = 'decimal-pad' }
       value={typeof value === 'number' ? String(value) : ''}
       onChangeText={(t) => {
         const n = Number(t);
-        onChange(t.trim() === '' || Number.isNaN(n) ? null : n);
+        onChange(t.trim() === '' || !Number.isFinite(n) ? null : n);
       }}
     />
   );
@@ -136,10 +137,11 @@ function TimeField({ question, value, onChange }: FieldProps) {
 function PhotoField({ value, onChange }: FieldProps) {
   const media = useMediaUpload();
   const [uri, setUri] = useState<string | null>(null);
+  const action = useAsyncAction();
 
-  const pick = async () => {
+  const pick = () => action.run(async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return;
+    if (!perm.granted) throw new Error('Camera permission is needed to take a photo.');
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (result.canceled || !result.assets?.[0]) return;
     const pickedUri = result.assets[0].uri;
@@ -154,7 +156,7 @@ function PhotoField({ value, onChange }: FieldProps) {
     };
     const { key } = await media.upload(file, 'file');
     onChange({ key });
-  };
+  });
 
   const hasKey = value !== null && typeof value === 'object' && 'key' in value;
 
@@ -162,6 +164,7 @@ function PhotoField({ value, onChange }: FieldProps) {
     <View className="gap-2">
       <Pressable
         onPress={() => void pick()}
+        disabled={action.pending}
         className="flex-row items-center justify-center gap-2 bg-surface border border-border rounded-xl py-3"
       >
         <Ionicons name="camera-outline" size={16} color="#E5E7EB" />
@@ -169,6 +172,7 @@ function PhotoField({ value, onChange }: FieldProps) {
       </Pressable>
       {media.status === 'uploading' && <Text className="text-xs text-gray-500">Uploading…</Text>}
       {media.error && <Text className="text-xs text-red-400">{media.error}</Text>}
+      {action.error && <Text className="text-xs text-red-400">{action.error}</Text>}
       {hasKey && (
         <View className="flex-row items-center gap-1.5">
           <Ionicons name="checkmark-circle" size={14} color="#4ADE80" />
@@ -189,7 +193,7 @@ function MeasurementField({ question, value, onChange }: FieldProps) {
       value={typeof value === 'number' ? String(value) : ''}
       onChangeText={(t) => {
         const n = Number(t);
-        onChange(t.trim() === '' || Number.isNaN(n) ? null : n);
+        onChange(t.trim() === '' || !Number.isFinite(n) ? null : n);
       }}
     />
   );

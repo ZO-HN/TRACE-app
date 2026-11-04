@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -26,32 +27,35 @@ function TabButton<T extends string>({
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const labelStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(active ? 1 : 0.6, { duration: 150 }),
+    opacity: withTiming(active ? 1 : 0.85, { duration: 150 }),
   }));
 
   return (
     <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={tab.label}
+      accessibilityState={{ selected: active }}
       onPress={() => {
         scale.value = withSpring(1.15, { damping: 8, stiffness: 300 }, () => {
           scale.value = withSpring(1, { damping: 10, stiffness: 300 });
         });
         onPress();
       }}
-      className="flex-1 py-2.5 items-center gap-0.5"
+      className="flex-1 min-w-0 min-h-[56px] py-2.5 items-center gap-0.5"
     >
       <Animated.View style={style}>
         <Ionicons
           name={active ? tab.activeIcon : tab.icon}
           size={22}
-          color={active ? '#4ADE80' : '#6B7280'}
+          color={active ? '#4ADE80' : '#9CA3AF'}
         />
       </Animated.View>
-      <Animated.Text
-        style={labelStyle}
-        className={`text-[11px] font-medium ${active ? 'text-primary' : 'text-gray-500'}`}
-      >
+      <Animated.View style={labelStyle}>
+      <Text numberOfLines={1} style={{ color: active ? '#4ADE80' : '#9CA3AF',
+        fontSize: tab.label.length > 10 ? 10 : 11, fontWeight: '500', textAlign: 'center' }}>
         {tab.label}
-      </Animated.Text>
+      </Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -69,10 +73,12 @@ export default function TabBar<T extends string>({
   active: string;
   onChange: (tab: T) => void;
 }) {
+  const insets = useSafeAreaInsets();
   return (
     <View
       className="flex-row border-t border-border bg-surface"
       style={{
+        paddingBottom: insets.bottom,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.2,

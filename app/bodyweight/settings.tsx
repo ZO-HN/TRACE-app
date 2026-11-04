@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +14,7 @@ import Card from '../../src/components/ui/Card';
 import Switch from '../../src/components/ui/Switch';
 import Select from '../../src/components/ui/Select';
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
+import { useAsyncAction } from '../../src/hooks/useAsyncAction';
 
 function SectionCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
@@ -28,34 +28,59 @@ function SectionCard({ title, description, children }: { title: string; descript
 
 export default function BodyweightSettingsScreen() {
   const { profile } = useTraceUserContext();
-  const { settings, update } = useBodyweightSettings(profile!.id);
-  const { unit, setUnit } = useUnitPreference();
-  const [reminderBusy, setReminderBusy] = useState(false);
+  const { settings, update, isLoading } = useBodyweightSettings(profile!.id);
+  const { unit, setUnit, isLoaded } = useUnitPreference();
+  const unitAction = useAsyncAction();
+  const action = useAsyncAction();
 
-  const handleToggleReminder = async (enabled: boolean) => {
-    setReminderBusy(true);
+  const handleToggleReminder = (enabled: boolean) => action.run(async () => {
     if (enabled) {
       const granted = await requestReminderPermission();
       if (!granted) {
         Alert.alert('Notifications disabled', 'Enable notifications for TRACE in system settings first.');
-        setReminderBusy(false);
         return;
       }
       const time = settings.weighInReminderTime ?? '08:00';
       await scheduleWeighInReminder(time);
-      await update({ weighInReminderEnabled: true, weighInReminderTime: time });
+      const result = await update({ weighInReminderEnabled: true, weighInReminderTime: time });
+      if (!result.ok) {
+        await cancelWeighInReminder();
+        throw new Error(result.error);
+      }
     } else {
       await cancelWeighInReminder();
-      await update({ weighInReminderEnabled: false });
+      const result = await update({ weighInReminderEnabled: false });
+      if (!result.ok) {
+        if (settings.weighInReminderEnabled) await scheduleWeighInReminder(settings.weighInReminderTime ?? '08:00');
+        throw new Error(result.error);
+      }
     }
-    setReminderBusy(false);
-  };
+  });
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScreenHeader title="Bodyweight Settings" />
 
       <ScrollView contentContainerClassName="p-4 gap-4">
+        <View className="gap-3 pb-4 border-b border-border">
+          <Text className="text-base font-bold text-white">Default weight unit</Text>
+          <View className="flex-row gap-2">
+            {(['kg', 'lbs'] as const).map((value) => <Pressable
+              key={value}
+              accessibilityRole="radio"
+              accessibilityLabel={value === 'kg' ? 'Kilograms' : 'Pounds'}
+              accessibilityState={{ checked: unit === value, disabled: !isLoaded || unitAction.pending }}
+              disabled={!isLoaded || unitAction.pending}
+              onPress={() => void unitAction.run(() => setUnit(value))}
+              style={{ borderRadius: 16 }}
+              className={`flex-1 h-12 rounded-lg border items-center justify-center ${unit === value ? 'border-primary bg-surface' : 'border-border'}`}
+            >
+              <Text className={unit === value ? 'text-primary font-bold' : 'text-gray-400'}>{value === 'kg' ? 'Kilograms (kg)' : 'Pounds (lb)'}</Text>
+            </Pressable>)}
+          </View>
+          {unitAction.error && <Text className="text-red-400 text-sm">Could not save unit. Please try again.</Text>}
+        </View>
+        {action.error && <Text className="text-red-400">{action.error}</Text>}
         <SectionCard
           title="Health Connect Integration"
           description="Automatically sync your bodyweight data from Health Connect to keep your records up to date."
@@ -67,14 +92,13 @@ export default function BodyweightSettingsScreen() {
             <Ionicons name="pulse-outline" size={18} color="#E5E7EB" />
             <Text className="text-white font-medium">Sync Recent Data</Text>
           </Pressable>
-          <Pressable
-            onPress={() => Alert.alert('Coming soon', 'Historical import is not available yet.')}
-            className="flex-row items-center gap-2 border border-border rounded-xl px-4 py-3"
-          >
-            <Ionicons name="phone-portrait-outline" size={18} color="#6B7280" />
-            <Text className="text-gray-500 font-medium">Import All Historical Data</Text>
-          </Pressable>
         </SectionCard>
+
+        <Pressable accessibilityRole="button" onPress={() => router.push('/bodyweight/entry')}
+          className="flex-row items-center gap-2 border border-border rounded-xl px-4 py-3 min-h-[48px]">
+          <Ionicons name="calendar-outline" size={18} color="#E5E7EB" />
+          <Text className="text-white font-medium">Add a past weigh-in</Text>
+        </Pressable>
 
         <SectionCard
           title="Weigh-in Reminders"
@@ -92,20 +116,9 @@ export default function BodyweightSettingsScreen() {
             <Switch
               value={settings.weighInReminderEnabled}
               onValueChange={(v) => void handleToggleReminder(v)}
-              disabled={reminderBusy}
+              disabled={isLoading || action.pending}
             />
           </View>
-        </SectionCard>
-
-        <SectionCard title="Units" description="Which unit weight is entered and displayed in across the app.">
-          <Select
-            value={unit}
-            options={[
-              { value: 'lbs', label: 'Pounds (lb)' },
-              { value: 'kg', label: 'Kilograms (kg)' },
-            ]}
-            onChange={setUnit}
-          />
         </SectionCard>
 
         <SectionCard
@@ -118,7 +131,10 @@ export default function BodyweightSettingsScreen() {
               { value: '7', label: '7 days' },
               { value: '14', label: '14 days' },
             ]}
-            onChange={(v) => void update({ movingAverageWindow: v === '7' ? 7 : 14 })}
+            onChange={(v) => { if (!isLoading) void action.run(async () => {
+              const result = await update({ movingAverageWindow: v === '7' ? 7 : 14 });
+              if (!result.ok) throw new Error(result.error);
+            }); }}
           />
         </SectionCard>
 

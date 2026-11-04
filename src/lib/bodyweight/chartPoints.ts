@@ -40,12 +40,14 @@ export function buildChartLayout(
   const maxValue = Math.max(...allValues);
   const range = maxValue - minValue || 1;
 
-  const xStep = entries.length > 1 ? width / (entries.length - 1) : 0;
+  const times = entries.map((entry) => Date.parse(`${entry.recorded_date}T00:00:00Z`));
+  const span = times[times.length - 1] - times[0];
+  const xFor = (index: number) => span > 0 ? ((times[index] - times[0]) / span) * width : 0;
   const yFor = (value: number) => height - ((value - minValue) / range) * height;
 
-  const raw: ChartPoint[] = rawValues.map((value, i) => ({ x: i * xStep, y: yFor(value), value }));
+  const raw: ChartPoint[] = rawValues.map((value, i) => ({ x: xFor(i), y: yFor(value), value }));
   const average: ChartPoint[] = avgValues
-    .map((value, i) => (value === null ? null : { x: i * xStep, y: yFor(value), value }))
+    .map((value, i) => (value === null ? null : { x: xFor(i), y: yFor(value), value }))
     .filter((p): p is ChartPoint => p !== null);
 
   return { raw, average, minValue, maxValue };

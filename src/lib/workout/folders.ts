@@ -27,7 +27,11 @@ export function groupByFolder(
   const foldersById = new Map(folders.map((f) => [f.id, f]));
   const byFolderKey = new Map<string, FolderGroup>();
   const unfoldered: FolderGroup = { folder: null, templates: [] };
-  const groups: FolderGroup[] = [];
+  const groups: FolderGroup[] = folders.map((folder) => {
+    const group: FolderGroup = { folder, templates: [] };
+    byFolderKey.set(folder.id, group);
+    return group;
+  });
 
   for (const template of templates) {
     const folder = template.folderId ? foldersById.get(template.folderId) : undefined;

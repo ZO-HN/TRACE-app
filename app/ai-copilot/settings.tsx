@@ -5,12 +5,14 @@
 // synced to Supabase or seen by TRACE's backend.
 
 import { useEffect, useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAICopilotConfig } from '../../src/hooks/useAICopilotConfig';
 import { chatCompletion } from '../../src/lib/ai/client';
-import { DEFAULT_AI_BASE_URL, DEFAULT_AI_MODEL } from '../../src/lib/ai/types';
+import { AI_PROVIDERS, DEFAULT_AI_BASE_URL, DEFAULT_AI_MODEL, type AICopilotConfig } from '../../src/lib/ai/types';
+import Select from '../../src/components/ui/Select';
+import { useAsyncAction } from '../../src/hooks/useAsyncAction';
 import ScreenHeader from '../../src/components/ui/ScreenHeader';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
@@ -18,6 +20,8 @@ import Button from '../../src/components/ui/Button';
 export default function AICopilotSettingsScreen() {
   const { config, isLoading, save, clear } = useAICopilotConfig();
   const [baseUrl, setBaseUrl] = useState(DEFAULT_AI_BASE_URL);
+  const [provider, setProvider] = useState<NonNullable<AICopilotConfig['provider']>>('openai');
+  const action = useAsyncAction();
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState(DEFAULT_AI_MODEL);
   const [testing, setTesting] = useState(false);
@@ -26,6 +30,7 @@ export default function AICopilotSettingsScreen() {
 
   useEffect(() => {
     if (config) {
+      setProvider(config.provider ?? 'custom');
       setBaseUrl(config.baseUrl);
       setApiKey(config.apiKey);
       setModel(config.model);
@@ -36,7 +41,7 @@ export default function AICopilotSettingsScreen() {
     setTesting(true);
     setTestResult(null);
     const result = await chatCompletion(
-      { baseUrl, apiKey, model },
+      { provider, baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim() },
       [{ role: 'user', content: 'Reply with just the word "ok".' }],
     );
     setTesting(false);
@@ -49,9 +54,10 @@ export default function AICopilotSettingsScreen() {
 
   const handleSave = async () => {
     setSaving(true);
-    await save({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim() });
-    setSaving(false);
-    router.back();
+    try {
+      await save({ provider, baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim() });
+      router.replace('/ai-copilot');
+    } finally { setSaving(false); }
   };
 
   if (isLoading) return null;
@@ -62,16 +68,20 @@ export default function AICopilotSettingsScreen() {
       <ScrollView contentContainerClassName="p-4 gap-4">
         <Card className="p-4 gap-2">
           <Text className="text-sm text-gray-400">
-            TRACE doesn't bundle or pay for an AI assistant. Bring your own API key for any
-            OpenAI-compatible endpoint (OpenAI, a compatible proxy, or a self-hosted model). Your
-            key is stored only on this device and is never sent to TRACE's servers.
+            API usage is billed by your provider, separately from ChatGPT or Claude subscriptions.
+            Keys and messages go directly to the selected endpoint, not TRACE's servers.
+            {Platform.OS === 'web' ? ' Browser keys remain in memory until reload. Use only a trusted browser.' : ' Keys are saved in secure device storage.'}
           </Text>
         </Card>
+        <Select value={provider} options={Object.entries(AI_PROVIDERS).map(([value, preset]) => ({ value: value as NonNullable<AICopilotConfig['provider']>, label: preset.label }))}
+          onChange={(value) => { setProvider(value); setBaseUrl(AI_PROVIDERS[value].baseUrl); setModel(AI_PROVIDERS[value].model); setApiKey(''); setTestResult(null); }} />
+        {action.error && <Text className="text-red-400">{action.error}</Text>}
 
         <View className="gap-2">
           <Text className="text-xs text-gray-500 uppercase tracking-wide">Base URL</Text>
           <TextInput
             value={baseUrl}
+            editable={provider === 'custom' && !action.pending}
             onChangeText={setBaseUrl}
             placeholder={DEFAULT_AI_BASE_URL}
             placeholderTextColor="#6B7280"
@@ -86,7 +96,7 @@ export default function AICopilotSettingsScreen() {
           <TextInput
             value={apiKey}
             onChangeText={setApiKey}
-            placeholder="sk-..."
+            placeholder="Provider API key"
             placeholderTextColor="#6B7280"
             secureTextEntry
             autoCapitalize="none"
@@ -100,7 +110,7 @@ export default function AICopilotSettingsScreen() {
           <TextInput
             value={model}
             onChangeText={setModel}
-            placeholder={DEFAULT_AI_MODEL}
+            placeholder="Model ID from your provider"
             placeholderTextColor="#6B7280"
             autoCapitalize="none"
             autoCorrect={false}
@@ -118,22 +128,22 @@ export default function AICopilotSettingsScreen() {
           <Button
             variant="secondary"
             fullWidth
-            onPress={() => void handleTest()}
+            onPress={() => void action.run(handleTest)}
             loading={testing}
-            disabled={!baseUrl.trim() || !apiKey.trim() || !model.trim()}
+            disabled={action.pending || !baseUrl.trim() || !apiKey.trim() || !model.trim()}
           >
             Test connection
           </Button>
           <Button
             fullWidth
-            onPress={() => void handleSave()}
+            onPress={() => void action.run(handleSave)}
             loading={saving}
-            disabled={!baseUrl.trim() || !apiKey.trim() || !model.trim()}
+            disabled={action.pending || !baseUrl.trim() || !apiKey.trim() || !model.trim()}
           >
             Save
           </Button>
           {config && (
-            <Button variant="secondary" fullWidth onPress={() => void clear()}>
+            <Button variant="secondary" fullWidth disabled={action.pending} onPress={() => void action.run(async () => { await clear(); setApiKey(''); setTestResult(null); })}>
               Remove key from this device
             </Button>
           )}

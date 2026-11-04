@@ -1,9 +1,6 @@
-// Live 1-on-1 chat over the direct_messages table: initial history load,
-// realtime INSERT subscription, and a send action. Ported from the coach
-// dashboard's identical hook — no DOM dependency there, so it's unchanged
-// apart from this comment.
+// Conversation-scoped history and realtime messages share one deduplicated list.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { isBetween, mergeMessage, type DirectMessage } from '../lib/chat/types';
 
@@ -16,22 +13,31 @@ export interface UseDirectChat {
 export function useDirectChat(myId: string, peerId: string): UseDirectChat {
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const conversation = `${myId}:${peerId}`;
+  const activeConversation = useRef(conversation);
+  activeConversation.current = conversation;
 
   useEffect(() => {
     let cancelled = false;
+    setMessages([]);
+    setError(null);
 
     (async () => {
-      const { data, error: loadError } = await supabase
-        .from('direct_messages')
-        .select('*')
-        .or(
-          `and(sender_id.eq.${myId},recipient_id.eq.${peerId}),and(sender_id.eq.${peerId},recipient_id.eq.${myId})`,
-        )
-        .order('created_at', { ascending: true })
-        .limit(200);
-      if (!cancelled) {
-        if (loadError) setError(loadError.message);
-        else if (data) setMessages(data as DirectMessage[]);
+      try {
+        const { data, error: loadError } = await supabase
+          .from('direct_messages')
+          .select('*')
+          .or(
+            `and(sender_id.eq.${myId},recipient_id.eq.${peerId}),and(sender_id.eq.${peerId},recipient_id.eq.${myId})`,
+          )
+          .order('created_at', { ascending: false })
+          .limit(200);
+        if (!cancelled) {
+          if (loadError) setError(loadError.message);
+          else if (data) setMessages((current) => (data as DirectMessage[]).reduce(mergeMessage, current));
+        }
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Could not load messages.');
       }
     })();
 
@@ -42,7 +48,7 @@ export function useDirectChat(myId: string, peerId: string): UseDirectChat {
         { event: 'INSERT', schema: 'public', table: 'direct_messages' },
         (payload) => {
           const msg = payload.new as DirectMessage;
-          if (isBetween(msg, myId, peerId)) {
+          if (!cancelled && isBetween(msg, myId, peerId)) {
             setMessages((prev) => mergeMessage(prev, msg));
           }
         },
@@ -59,19 +65,24 @@ export function useDirectChat(myId: string, peerId: string): UseDirectChat {
     async (content: string) => {
       const trimmed = content.trim();
       if (!trimmed) return;
-      const { data, error: sendError } = await supabase
-        .from('direct_messages')
-        .insert({ sender_id: myId, recipient_id: peerId, content: trimmed })
-        .select()
-        .single();
-      if (sendError) {
-        setError(sendError.message);
-        throw sendError;
+      try {
+        const { data, error: sendError } = await supabase
+          .from('direct_messages')
+          .insert({ sender_id: myId, recipient_id: peerId, content: trimmed })
+          .select()
+          .single();
+        if (sendError) throw new Error(sendError.message);
+        if (activeConversation.current === conversation) {
+          setError(null);
+          if (data) setMessages((prev) => mergeMessage(prev, data as DirectMessage));
+        }
+      } catch (cause) {
+        if (activeConversation.current === conversation) setError(cause instanceof Error ? cause.message : 'Could not send message.');
+        throw cause;
       }
-      if (data) setMessages((prev) => mergeMessage(prev, data as DirectMessage));
     },
-    [myId, peerId],
+    [myId, peerId, conversation],
   );
 
-  return { messages, send, error };
+  return { messages: messages.filter((message) => isBetween(message, myId, peerId)), send, error };
 }

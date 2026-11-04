@@ -1,9 +1,7 @@
-// Saved meal templates (Meals tab) — a named bundle of food snapshots the
-// trainee can re-log in one tap. Direct writes, degrades to empty until
-// meal_templates/meal_template_items exist. See
-// docs/migrations-drafts/003_nutrition_extensions.sql.
+// Nutrition catalog operations require a connection; food logging uses the durable outbox.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useNutritionCatalog } from './useNutritionCatalog';
 import { randomUUID } from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import type { MealTemplate, MealTemplateItem } from '../lib/nutrition/types';
@@ -17,35 +15,14 @@ interface TemplateRow {
 export interface UseMealTemplates {
   templates: MealTemplate[];
   isLoading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
   saveTemplate: (name: string, items: MealTemplateItem[]) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function useMealTemplates(userId: string): UseMealTemplates {
-  const [templates, setTemplates] = useState<MealTemplate[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('meal_templates')
-      .select('id, name, meal_template_items(name, protein_g, carbs_g, fat_g, calories)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    setTemplates(
-      error
-        ? []
-        : ((data as TemplateRow[]) ?? []).map((row) => ({
-            id: row.id,
-            name: row.name,
-            items: row.meal_template_items ?? [],
-          })),
-    );
-    setIsLoading(false);
-  }, [userId]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const { rows, isLoading, error, refresh } = useNutritionCatalog<TemplateRow>('meal_templates', 'id, name, meal_template_items(name, protein_g, carbs_g, fat_g, calories)', userId);
+  const templates = rows.map((row) => ({ id: row.id, name: row.name, items: row.meal_template_items ?? [] }));
 
   const saveTemplate = useCallback(
     async (name: string, items: MealTemplateItem[]) => {
@@ -75,5 +52,5 @@ export function useMealTemplates(userId: string): UseMealTemplates {
     [userId, refresh],
   );
 
-  return { templates, isLoading, saveTemplate };
+  return { templates, isLoading, error, refresh, saveTemplate };
 }

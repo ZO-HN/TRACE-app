@@ -1,3 +1,4 @@
+import CatalogStatus from './CatalogStatus';
 import { ScrollView, View } from 'react-native';
 import { useSupplements } from '../../hooks/useSupplements';
 import { useLogFood } from '../../hooks/useLogFood';
@@ -14,8 +15,10 @@ export default function SupplementsTab({
   slot?: number | null;
   onLogged: (item: MealTemplateItem) => void;
 }) {
-  const { supplements, isLoading } = useSupplements();
+  const { supplements, isLoading, error, refresh } = useSupplements();
   const logFood = useLogFood(userId);
+
+  if (isLoading || error) return <CatalogStatus loading={isLoading} error={error} onRetry={refresh} />;
 
   if (!isLoading && supplements.length === 0) {
     return (
@@ -28,15 +31,15 @@ export default function SupplementsTab({
   }
 
   return (
-    <ScrollView contentContainerClassName="p-4 gap-2">
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerClassName="p-4 gap-2">
       <View className="gap-2">
         {supplements.map((s) => (
           <FoodMacroRow
             key={s.id}
             name={s.name}
             macros={s}
-            onLog={() => {
-              void logFood(s.name, s, slot);
+            onLog={async () => {
+              await logFood(s.name, s, slot);
               onLogged({
                 name: s.name,
                 protein_g: s.protein_g,

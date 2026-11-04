@@ -109,6 +109,12 @@ describe('toSetLogInsert', () => {
 });
 
 describe('isValidSetInput — duration sets', () => {
+  it('rejects fractional seconds instead of silently truncating tracked time', () => {
+    for (const durationSeconds of ['0.5', '30.5', Infinity, NaN]) {
+      expect(isValidSetInput({ ...base, setType: 'duration', durationSeconds })).toBe(false);
+    }
+  });
+
   it('requires a positive duration instead of reps', () => {
     expect(
       isValidSetInput({ ...base, reps: '', setType: 'duration', durationSeconds: '30' }),

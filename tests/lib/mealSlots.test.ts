@@ -13,6 +13,11 @@ const entry = (id: string, loggedAt: string, mealSlot: number | null = null): Me
 });
 
 describe('groupIntoMealSlots', () => {
+  it('treats fractional slots as unslotted without losing entries', () => {
+    const entries = [entry('fractional', '2026-08-09T08:00:00Z', 1.5)];
+    expect(groupIntoMealSlots(entries, 6).flat()).toEqual(entries);
+  });
+
   it('assigns entries to slots in chronological (oldest-first) order', () => {
     const entries = [
       entry('c', '2026-08-09T18:00:00Z'),

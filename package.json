@@ -45,16 +45,23 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "@types/react-test-renderer": "^19.3.0",
     "babel-preset-expo": "^57.0.5",
+    "react-test-renderer": "^19.2.3",
     "typescript": "~6.0.3",
     "vitest": "^4.1.10"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
+    "android:apk": "node scripts/build-android.mjs",
+    "android:download": "node scripts/serve-android-download.mjs",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "preview": "node scripts/preview.mjs",
     "test": "vitest run",
+    "test-account:create": "node scripts/test-account.mjs create",
+    "test-account:verify": "node scripts/test-account.mjs verify",
     "typecheck": "tsc --noEmit"
   },
   "private": true

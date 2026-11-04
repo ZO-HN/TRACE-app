@@ -28,6 +28,10 @@ export default function VoiceInputButton({
       router.push('/ai-copilot/settings');
       return;
     }
+    if (config.provider === 'gemini' || config.provider === 'anthropic') {
+      onError('Use text input with this provider. Voice transcription is not supported by this integration.');
+      return;
+    }
     const perm = await AudioModule.requestRecordingPermissionsAsync();
     if (!perm.granted) return;
 

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { MotiView } from 'moti';
@@ -10,6 +10,7 @@ import { useRepRangePRs } from '../hooks/useRepRangePRs';
 import { useReadinessScore } from '../hooks/useReadinessScore';
 import { useWorkoutFolders } from '../hooks/useWorkoutFolders';
 import { useWorkoutTemplates } from '../hooks/useWorkoutTemplates';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import { groupByFolder } from '../lib/workout/folders';
 import { toBarWidths } from '../lib/analytics/muscleBars';
 import { kgToLbs } from '../lib/units';
@@ -36,15 +37,19 @@ function SectionHeader({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; 
 
 // Folder-grouped "My Workouts" list — same data/actions as the old
 // standalone /workouts route (now retired in favor of living here).
-function MyWorkouts({ userId }: { userId: string }) {
-  const { folders, refresh: refreshFolders, deleteFolder } = useWorkoutFolders(userId);
+export function MyWorkouts({ userId }: { userId: string }) {
+  const { folders, error: folderError, refresh: refreshFolders, deleteFolder } = useWorkoutFolders(userId);
   const {
     templates,
     isLoading,
+    error: templateError,
     refresh: refreshTemplates,
     moveToFolder,
   } = useWorkoutTemplates(userId);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [query, setQuery] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const action = useAsyncAction();
 
   useFocusEffect(
     useCallback(() => {
@@ -53,62 +58,95 @@ function MyWorkouts({ userId }: { userId: string }) {
     }, [refreshFolders, refreshTemplates]),
   );
 
-  const groups = groupByFolder(templates, folders);
+  const search = query.trim().toLocaleLowerCase();
+  const matching = templates.filter((t) => t.name.toLocaleLowerCase().includes(search));
+  const groups = groupByFolder(matching, folders).filter((group) => !search || group.templates.length > 0);
+  const changeFolder = (operation: () => Promise<{ ok: boolean; error?: string }>) => action.run(async () => {
+    const result = await operation();
+    if (!result.ok) throw new Error(result.error ?? 'Could not update folder.');
+    setDeleteId(null);
+    await refreshTemplates();
+  });
 
   return (
     <View className="gap-3">
       <View className="flex-row items-center justify-between px-2">
         <SectionHeader icon="barbell-outline" label="My Workouts" />
-        <Pressable onPress={() => router.push('/workouts/folders/new')}>
+        <Pressable accessibilityRole="button" accessibilityLabel="New workout folder" className="min-h-11 min-w-11 items-center justify-center" onPress={() => router.push('/workouts/folders/new')}>
           <Ionicons name="folder-open-outline" size={18} color="#9CA3AF" />
         </Pressable>
       </View>
 
+      <TextInput
+        accessibilityLabel="Search workouts"
+        placeholder="Search workouts"
+        placeholderTextColor="#6B7280"
+        value={query}
+        onChangeText={setQuery}
+        className="min-h-11 bg-surface border border-border rounded-xl px-3 text-white"
+      />
+      {(folderError || templateError) && (
+        <View className="gap-2">
+          <Text accessibilityRole="alert" className="text-sm text-red-400">{templateError ?? folderError}</Text>
+          <Button size="sm" variant="secondary" onPress={() => { void refreshFolders(); void refreshTemplates(); }}>Retry</Button>
+        </View>
+      )}
+      {action.error && <Text accessibilityRole="alert" className="text-sm text-red-400">{action.error}</Text>}
+
       {isLoading ? (
         <Skeleton className="h-24 w-full rounded-xl" />
-      ) : templates.length === 0 ? (
+      ) : matching.length === 0 && (search || folders.length === 0) && !templateError ? (
         <View className="items-center py-6 gap-2">
           <Ionicons name="barbell-outline" size={26} color="#6B7280" />
           <Text className="text-sm text-gray-500 text-center">
-            Generate a workout below or wait for your coach to assign one.
+            {search ? 'No matching workouts.' : 'Generate a workout below or wait for your coach to assign one.'}
           </Text>
         </View>
       ) : (
         groups.map((group) => {
           const key = group.folder?.id ?? 'unfoldered';
-          const isCollapsed = collapsed[key];
+          const isCollapsed = !search && collapsed[key];
           return (
             <View key={key} className="gap-2">
+              <View className="flex-row items-center gap-1">
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${group.folder?.name ?? 'Unfoldered'} workouts`}
+                accessibilityState={{ expanded: !isCollapsed, disabled: action.pending }}
+                disabled={action.pending}
                 onPress={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))}
-                onLongPress={() => {
-                  if (!group.folder) return;
-                  Alert.alert(
-                    `Delete "${group.folder.name}"?`,
-                    'Workouts inside will move to "My Workouts", not be deleted.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: () => void deleteFolder(group.folder!.id),
-                      },
-                    ],
-                  );
-                }}
-                className="flex-row items-center gap-2 px-1"
+                className="flex-1 flex-row items-center gap-2 px-1 min-h-11"
               >
                 <Ionicons name={isCollapsed ? 'chevron-forward' : 'chevron-down'} size={16} color="#9CA3AF" />
-                <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <Text className="flex-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   {group.folder?.name ?? 'Unfoldered'} ({group.templates.length})
                 </Text>
               </Pressable>
+              {group.folder && <>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Rename ${group.folder.name}`} disabled={action.pending}
+                  className="min-h-11 min-w-11 items-center justify-center"
+                  onPress={() => router.push({ pathname: '/workouts/folders/new', params: { id: group.folder!.id, name: group.folder!.name } })}>
+                  <Ionicons name="pencil-outline" size={18} color="#9CA3AF" />
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${group.folder.name}`} disabled={action.pending}
+                  className="min-h-11 min-w-11 items-center justify-center" onPress={() => setDeleteId(group.folder!.id)}>
+                  <Ionicons name="trash-outline" size={18} color="#F87171" />
+                </Pressable>
+              </>}
+              </View>
+              {deleteId === group.folder?.id && <View className="gap-2 px-1">
+                <Text className="text-sm text-gray-300">Delete this folder? Workouts will be kept in Unfoldered.</Text>
+                <View className="flex-row gap-2">
+                  <Button size="sm" variant="secondary" disabled={action.pending} onPress={() => setDeleteId(null)}>Cancel</Button>
+                  <Button size="sm" variant="danger" loading={action.pending} onPress={() => void changeFolder(() => deleteFolder(group.folder!.id))}>Delete folder</Button>
+                </View>
+              </View>}
 
               {!isCollapsed &&
                 group.templates.map((t) => (
                   <Card key={t.id} className="p-4 gap-3">
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-white font-semibold text-base">{t.name}</Text>
+                      <Text className="flex-1 mr-2 text-white font-semibold text-base">{t.name}</Text>
                       <View className="bg-primary/15 border border-primary/30 rounded-full px-2 py-0.5">
                         <Text className="text-primary text-xs font-medium">
                           {t.scope === 'ASSIGNED' ? 'Coach' : 'Mine'}
@@ -118,13 +156,14 @@ function MyWorkouts({ userId }: { userId: string }) {
                     <Text className="text-xs text-gray-500">{t.exerciseCount} exercises</Text>
                     {folders.length > 0 && (
                       <Select
+                        disabled={action.pending}
                         value={t.folderId ?? UNFOLDERED}
                         options={[
                           { value: UNFOLDERED, label: 'No folder' },
                           ...folders.map((f) => ({ value: f.id, label: f.name })),
                         ]}
                         onChange={(value) =>
-                          void moveToFolder(t.id, value === UNFOLDERED ? null : value)
+                          void changeFolder(() => moveToFolder(t.id, value === UNFOLDERED ? null : value))
                         }
                       />
                     )}

@@ -38,7 +38,7 @@ export default function HistoryScreen() {
   const { profile } = useTraceUserContext();
   // History is the full-list view, unlike Dashboard's "recent" callers —
   // needs a real limit so date-range filters aren't silently capped at 10.
-  const { sessions, isLoading } = useSessionSummaries(profile!.id, 200);
+  const { sessions, isLoading, error, refresh } = useSessionSummaries(profile!.id, 200);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [days, setDays] = useState<DateRangeFilter>('all');
   const [query, setQuery] = useState('');
@@ -91,12 +91,16 @@ export default function HistoryScreen() {
         </View>
       )}
 
-      {isLoading ? (
+      {error && <View className="px-4 py-2 gap-2">
+        <Text className="text-red-400">{error}</Text>
+        <Pressable onPress={refresh}><Text className="text-primary">Retry loading history</Text></Pressable>
+      </View>}
+      {isLoading && sessions.length === 0 ? (
         <View className="p-4 gap-2">
           <Skeleton className="h-14 w-full rounded-xl" />
           <Skeleton className="h-14 w-full rounded-xl" />
         </View>
-      ) : sessions.length === 0 ? (
+      ) : sessions.length === 0 && !error ? (
         <View className="flex-1 items-center justify-center px-6 gap-4">
           <View className="w-20 h-20 rounded-full bg-surface items-center justify-center">
             <Ionicons name="calendar-outline" size={32} color="#6B7280" />

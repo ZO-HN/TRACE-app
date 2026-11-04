@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   clearAICopilotConfig,
   loadAICopilotConfig,
@@ -18,18 +19,18 @@ export function useAICopilotConfig(): UseAICopilotConfig {
   const [config, setConfig] = useState<AICopilotConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let cancelled = false;
     void loadAICopilotConfig().then((c) => {
       if (!cancelled) {
         setConfig(c);
         setIsLoading(false);
       }
-    });
+    }).catch(() => { if (!cancelled) { setConfig(null); setIsLoading(false); } });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, []));
 
   const save = useCallback(async (next: AICopilotConfig) => {
     await saveAICopilotConfig(next);

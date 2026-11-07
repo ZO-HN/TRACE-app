@@ -38,6 +38,24 @@ export async function putOutboxItem(item: OutboxItem): Promise<void> {
 // Serialize read-modify-write operations so an in-flight acknowledgement cannot
 // overwrite a newer payload queued while its request was running.
 let mutation: Promise<unknown> = Promise.resolve();
+export function insertOutboxBatch(items: OutboxItem[]): Promise<OutboxItem[]> {
+  const next = mutation.then(async () => {
+    const driver = await getDriver();
+    const existing = (await driver.getAll()).filter(item => items.some(next => next.id === item.id));
+    if (existing.length) {
+      if (existing.length !== items.length || existing.some(item => {
+        const expected = items.find(next => next.id === item.id)!;
+        return item.owner_id !== expected.owner_id || item.table !== expected.table || JSON.stringify(item.payload) !== JSON.stringify(expected.payload);
+      })) throw new Error('Meal logging identities conflict with existing records.');
+      return existing;
+    }
+    if (!driver.putNewBatch) throw new Error('Atomic meal logging is unavailable in this storage backend.');
+    await driver.putNewBatch(items);
+    return items;
+  });
+  mutation = next.catch(() => undefined);
+  return next;
+}
 export function updateOutboxItem(id: string, update: (item: OutboxItem | undefined) => OutboxItem | undefined): Promise<void> {
   const next = mutation.then(async () => {
     const items = await getAllOutboxItems();

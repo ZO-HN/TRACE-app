@@ -24,10 +24,16 @@ export async function presignViaEdge(
 export async function putToR2(
   url: string,
   file: RNFile,
+  headers:Record<string,string>,
 ): Promise<{ ok: boolean; status: number }> {
   const result = await FileSystem.uploadAsync(url, file.uri, {
     httpMethod: 'PUT',
-    headers: { 'Content-Type': file.type },
+    headers,
   });
   return { ok: result.status >= 200 && result.status < 300, status: result.status };
+}
+
+export async function finalizeViaEdge(key:string,ownerId:string):Promise<{key:string;ready:boolean}>{
+  const result=await supabase.functions.invoke<{key:string;ready:boolean}>('r2-finalize',{body:{key,ownerId}});
+  if(result.error)throw result.error;if(!result.data)throw new Error('No upload verification response. Retry the same upload.');return result.data;
 }

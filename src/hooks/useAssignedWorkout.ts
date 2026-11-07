@@ -8,12 +8,13 @@ import type { TemplateItemRow } from '../lib/workout/template';
 const source: WorkoutSource = {
   template: async (userId, selectedId) => {
     if (selectedId) {
-      const { data, error } = await supabase.from('workout_templates').select('id, name').eq('id', selectedId).eq('is_active', true).maybeSingle();
+      const { data, error } = await supabase.from('workout_templates').select('id, name').eq('id', selectedId).eq('is_active', true)
+        .or(`and(scope.eq.ASSIGNED,assigned_trainee_id.eq.${userId}),and(scope.eq.PRIVATE,creator_id.eq.${userId})`).maybeSingle();
       if (error) throw new Error(error.message);
       return data;
     }
     const { data, error } = await supabase.from('workout_templates').select('id, name').eq('is_active', true)
-      .eq('scope', 'ASSIGNED').eq('assigned_trainee_id', userId).order('week_number').order('day_number').limit(1);
+      .eq('scope', 'ASSIGNED').eq('delivery_kind', 'standalone').eq('assigned_trainee_id', userId).order('week_number').order('day_number').limit(1);
     if (error) throw new Error(error.message);
     if (data?.[0]) return data[0];
     const own = await supabase.from('workout_templates').select('id, name').eq('is_active', true)
@@ -23,7 +24,7 @@ const source: WorkoutSource = {
   },
   items: async (id) => {
     const { data, error } = await supabase.from('template_items')
-      .select('position, target_sets, target_reps, target_rpe, exercise:exercises(id, name)').eq('template_id', id);
+      .select('position, target_sets, target_reps, target_rpe, rest_seconds, exercise:exercises(id, name)').eq('template_id', id);
     if (error) throw new Error(error.message);
     return (data ?? []) as unknown as TemplateItemRow[];
   },

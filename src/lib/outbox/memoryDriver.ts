@@ -10,6 +10,10 @@ export function createMemoryOutboxDriver(): OutboxDriver {
     async put(item) {
       store.set(item.id, item);
     },
+    async putNewBatch(items) {
+      if (items.some(item => store.has(item.id))) throw new Error('Batch identity already exists');
+      for (const item of items) store.set(item.id, item);
+    },
     async getAll() {
       return Array.from(store.values());
     },

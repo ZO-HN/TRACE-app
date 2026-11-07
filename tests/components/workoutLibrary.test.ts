@@ -12,6 +12,7 @@ vi.mock('moti', () => ({ MotiView: 'View' }));
 vi.mock('expo-crypto', () => ({ randomUUID: () => 'uuid' }));
 vi.mock('../../src/lib/supabase', () => ({ supabase: {} }));
 vi.mock('../../src/components/WorkoutGenerator', () => ({ default: 'Generator' }));
+vi.mock('../../src/components/CoachSchedule', () => ({ default: 'CoachSchedule' }));
 vi.mock('../../src/components/analytics/MuscleBodyMap', () => ({ default: 'BodyMap' }));
 vi.mock('../../src/components/ui/Card', () => ({ default: 'Card' }));
 vi.mock('../../src/components/ui/Button', () => ({ default: 'Button' }));

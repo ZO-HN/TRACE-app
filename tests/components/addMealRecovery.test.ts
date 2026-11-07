@@ -1,0 +1,38 @@
+import {createElement} from 'react';
+import {act,create,type ReactTestRenderer} from 'react-test-renderer';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import AddMealModal from '../../app/nutrition/add-meal';
+const api=vi.hoisted(()=>({pending:vi.fn(),save:vi.fn(),retry:vi.fn()}));
+Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+vi.mock('react-native',()=>({KeyboardAvoidingView:'KeyboardAvoidingView',Platform:{OS:'android'},Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',TextInput:'TextInput',View:'View'}));
+vi.mock('react-native-safe-area-context',()=>({SafeAreaView:'SafeAreaView'}));
+vi.mock('expo-router',()=>({router:{back:vi.fn()},useLocalSearchParams:()=>({})}));
+vi.mock('../../src/context/TraceUserContext',()=>({useTraceUserContext:()=>({profile:{id:'trainee'}})}));
+vi.mock('../../src/hooks/useMealTemplates',()=>({useMealTemplates:()=>({saveTemplate:api.save})}));
+vi.mock('../../src/lib/nutrition/saveMeal',()=>({pendingMealSave:(...a:unknown[])=>api.pending(...a),savePersonalMeal:(...a:unknown[])=>api.retry(...a)}));
+vi.mock('../../src/components/ui/Button',()=>({default:'Button'}));
+vi.mock('../../src/components/ui/ScreenHeader',()=>({default:'ScreenHeader'}));
+vi.mock('../../src/components/nutrition/QuickAddTab',()=>({default:'QuickAddTab'}));
+vi.mock('../../src/components/nutrition/FavoritesTab',()=>({default:'FavoritesTab'}));
+vi.mock('../../src/components/nutrition/CustomFoodTab',()=>({default:'CustomFoodTab'}));
+vi.mock('../../src/components/nutrition/SupplementsTab',()=>({default:'SupplementsTab'}));
+vi.mock('../../src/components/nutrition/MealTemplatesTab',()=>({default:'MealTemplatesTab'}));
+let root:ReactTestRenderer;
+beforeEach(()=>{api.pending.mockReset().mockResolvedValue({operationId:'pending'});api.save.mockReset().mockResolvedValue({ok:true});api.retry.mockReset().mockResolvedValue(undefined);});
+afterEach(async()=>act(async()=>root?.unmount()));
+it('shows pending-storage errors even before any food has been logged',async()=>{
+  api.pending.mockRejectedValueOnce(new Error('Saved request is unreadable'));
+  await act(async()=>{root=create(createElement(AddMealModal));});
+  expect(root.root.findAll(n=>n.type===('Text' as any)).map(n=>n.props.children).flat().join(' ')).toContain('Saved request is unreadable');
+});
+it('clears the prior-save warning after a confirmed normal template save',async()=>{
+  await act(async()=>{root=create(createElement(AddMealModal));});
+  expect(root.root.findAll(n=>n.type===('Text' as any)).map(n=>n.props.children).flat().join(' ')).toContain('previous meal save');
+  const quick=root.root.findAll(n=>n.type===('QuickAddTab' as any))[0];
+  await act(async()=>quick.props.onLogged({name:'Rice',calories:200,protein_g:4,carbs_g:40,fat_g:1}));
+  const saveButton=()=>root.root.findAll(n=>n.type===('Button' as any)).find(n=>String(n.props.children).startsWith('Save'))!;
+  await act(async()=>saveButton().props.onPress());
+  await act(async()=>root.root.findAll(n=>n.type===('TextInput' as any))[0].props.onChangeText('Lunch'));
+  await act(async()=>saveButton().props.onPress());
+  expect(api.save).toHaveBeenCalledTimes(1);expect(root.root.findAll(n=>n.type===('Text' as any)).map(n=>n.props.children).flat().join(' ')).not.toContain('previous meal save');
+});

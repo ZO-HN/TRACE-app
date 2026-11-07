@@ -43,7 +43,7 @@ export interface UploadCandidate {
 export type ValidationResult = { ok: true } | { ok: false; reason: string };
 
 export function validateUpload(candidate: UploadCandidate): ValidationResult {
-  const policy = MEDIA_POLICY[candidate.kind];
+  const policy = Object.prototype.hasOwnProperty.call(MEDIA_POLICY,candidate.kind)?MEDIA_POLICY[candidate.kind]:undefined;
   if (!policy) return { ok: false, reason: `Unknown media kind: ${candidate.kind}` };
 
   if (!policy.contentTypes.includes(candidate.contentType)) {

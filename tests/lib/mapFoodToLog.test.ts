@@ -1,3 +1,4 @@
+import { localDate } from '../../src/lib/localDate';
 import { describe, expect, it } from 'vitest';
 import { toNutritionLogFromFood } from '../../src/lib/nutrition/mapFoodToLog';
 
@@ -10,6 +11,7 @@ describe('toNutritionLogFromFood', () => {
       id: 'log-1',
       user_id: 'user-1',
       method: 'TYPED',
+      logged_at: expect.any(String), recorded_date: localDate(new Date(payload.logged_at!)),
       description: 'Chicken breast',
       protein_g: 20,
       carbs_g: 10,

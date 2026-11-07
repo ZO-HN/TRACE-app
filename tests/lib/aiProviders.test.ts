@@ -3,6 +3,9 @@ import { AI_PROVIDERS } from '../../src/lib/ai/types';
 import { chatCompletion, transcribeAudio } from '../../src/lib/ai/client';
 import { clearAICopilotConfig, loadAICopilotConfig, saveAICopilotConfig } from '../../src/lib/ai/secureConfig';
 
+// Protocol adapter coverage only. The real V1 availability gate is tested separately.
+vi.mock('../../src/lib/ai/availability', () => ({ AI_AVAILABLE: true, AI_UNAVAILABLE_REASON: 'Unavailable' }));
+
 vi.mock('expo-file-system/legacy', () => ({}));
 vi.mock('expo-secure-store', () => ({ setItemAsync: vi.fn(), getItemAsync: vi.fn(), deleteItemAsync: vi.fn() }));
 vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));

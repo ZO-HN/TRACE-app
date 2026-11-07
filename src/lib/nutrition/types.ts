@@ -7,6 +7,8 @@ export type NutritionMethod = 'TYPED' | 'BARCODE' | 'PHOTO';
 export interface NutritionLogInsert {
   id: string;
   logged_at?: string;
+  /** Local diary day captured with this entry; legacy entries may omit it. */
+  recorded_date?: string | null;
   user_id: string;
   method: NutritionMethod;
   description?: string | null;

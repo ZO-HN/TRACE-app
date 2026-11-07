@@ -42,7 +42,12 @@ export function parseQuickEntry(text: string): ParsedMacros {
       result.error = 'Calories and macros must be non-negative.';
       continue;
     }
-    if (result[key] === null) result[key] = key === 'calories' ? Math.round(value) : value;
+    if ((key === 'calories' ? Math.round(value) > 2147483647 : value > 99999.9)) {
+      result.error = key === 'calories' ? 'Calories must be no greater than 2147483647.'
+        : 'Each macro must be no greater than 99999.9 grams.';
+      continue;
+    }
+    if (result[key] === null) result[key] = key === 'calories' ? Math.round(value) : Math.round((value + Number.EPSILON) * 10) / 10;
   }
 
   return result;

@@ -10,7 +10,7 @@ function setup() {
   };
   const source: WorkoutSource = {
     template: vi.fn().mockResolvedValue({ id: 'template-a', name: 'Assigned workout' }),
-    items: vi.fn().mockResolvedValue([{ position: 1, target_sets: 3, target_reps: 8, target_rpe: 7, exercise: { id: 'exercise-a', name: 'Squat' } }]),
+    items: vi.fn().mockResolvedValue([{ position: 1, target_sets: 3, target_reps: 8, target_rpe: 7, rest_seconds: 75, exercise: { id: 'exercise-a', name: 'Squat' } }]),
   };
   return { cache, saved, source };
 }
@@ -20,6 +20,7 @@ describe('real workout cache', () => {
     const first = await loadWorkout(source, cache, 'a', null, false);
     const offline = await loadWorkout(source, cache, 'a', null, true);
     expect(first.status).toBe('ready');
+    expect(first.exercises?.[0].restSeconds).toBe(75);
     expect(offline.status).toBe('cached');
     expect(offline.exercises?.[0].id).toBe('exercise-a');
     expect(source.template).toHaveBeenCalledTimes(1);

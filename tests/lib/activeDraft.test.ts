@@ -130,7 +130,7 @@ it('retains safe legacy recovery using the owning parent session and historical 
   delete item.owner_id;
   delete item.table;
   const parent: OutboxItem = { id: 'session', table: 'workout_sessions', owner_id: 'a', status: 'pending', attempts: 0,
-    updated_at: '', payload: { id: 'session', user_id: 'a', template_id: 'template' } };
+    updated_at: '', payload: { id: 'session', user_id: 'a', template_id: 'template', session_name: 'Workout', duration_seconds: 0 } };
   expect(recoverQueuedSets({ ...draft, logIds: [] }, [item, parent]).logIds).toEqual([['0:1', 'legacy']]);
 });
 

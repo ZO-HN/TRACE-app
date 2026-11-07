@@ -3,9 +3,11 @@
 // summaries with comparative analysis"). Pure and framework-free.
 
 import { localDate } from '../localDate';
+import { nutritionDay } from './record';
 
 export interface NutritionSummaryEntry {
   logged_at: string;
+  recorded_date?: string | null;
   calories: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -41,9 +43,8 @@ function averageByDay(entries: NutritionSummaryEntry[], from: Date, to: Date): W
   >();
 
   for (const e of entries) {
-    const d = new Date(e.logged_at);
-    if (d < from || d >= to) continue;
-    const key = localDate(d);
+    const key = nutritionDay(e);
+    if (key < localDate(from) || key >= localDate(to)) continue;
     const cur = byDay.get(key) ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
     cur.calories += e.calories ?? 0;
     cur.protein_g += e.protein_g ?? 0;

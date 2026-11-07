@@ -22,6 +22,12 @@ async function getDb() {
 }
 
 export const sqliteOutboxDriver: OutboxDriver = {
+  async putNewBatch(items) {
+    const db = await getDb();
+    await db.withExclusiveTransactionAsync(async transaction => {
+      for (const item of items) await transaction.runAsync('INSERT INTO outbox (id, json) VALUES (?, ?);', item.id, JSON.stringify(item));
+    });
+  },
   async put(item) {
     const db = await getDb();
     await db.runAsync(

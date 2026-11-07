@@ -13,6 +13,7 @@ Owner: TRACE maintainers. Updated: 2026-10-31. This index owns device-specific p
 | Provision test trainee | [Test account](qa/test-account.md) |
 | Verify native behavior | [Mobile acceptance](qa/mobile-acceptance.md), [shared acceptance](../../TRACE/docs/qa/cross-app-acceptance.md) |
 | Review nutrition UI evidence | [Nutrition acceptance review](releases/nutrition-acceptance-2026-10-31.md) |
+| Review workout draft recovery verification | [Repeated exercise recovery evidence](releases/workout-recovery-2026-11-05.md) |
 | Build/distribute | [Mobile release](operations/mobile-release.md), [testing evidence](releases/android-testing-baseline.md) |
 | Consider performance/shared AI | [Architecture proposal](../../TRACE/docs/planning/architecture-evolution.md) |
 | Resolve product scope | [Open decisions](../../TRACE/docs/planning/open-items.md), [nutrition spec](../../TRACE/docs/features/nutrition.md) |

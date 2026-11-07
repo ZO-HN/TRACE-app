@@ -14,7 +14,8 @@ import { predictNextSet, suggestNextSet } from '../lib/workout/suggestNextSet';
 import { lbsToKg, kgToLbs } from '../lib/units';
 import { createSessionDraft, sessionInsertFrom } from '../lib/workout/session';
 import { extendRestDeadline, restSecondsRemaining as getRestSecondsRemaining } from '../lib/workout/restTimer';
-import { activeWorkoutKey, parseActiveWorkout, recoverQueuedSets, WorkoutRecoveryError, type ActiveWorkoutDraft } from '../lib/workout/activeDraft';
+import { activeWorkoutKey, parseActiveWorkout, WorkoutRecoveryError, type ActiveWorkoutDraft } from '../lib/workout/activeDraft';
+import { recoverAssignedDraft, setNumberForOccurrence } from '../lib/workout/assignedDraftRecovery';
 import { readActiveDraft, writeActiveDraft } from '../lib/workout/activeDraftStorage';
 import { getAllOutboxItems } from '../lib/outbox/db';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
@@ -23,6 +24,7 @@ import { useSetCalibration } from '../hooks/useSetCalibration';
 import { useMediaUpload } from '../hooks/useMediaUpload';
 import type { RNFile } from '../lib/storage/uploadMedia';
 import MediaViewer from './media/MediaViewer';
+import UploadRecovery from './media/UploadRecovery';
 import Badge from './ui/Badge';
 import Card from './ui/Card';
 import FadeInView from './ui/FadeInView';
@@ -103,24 +105,46 @@ export default function GymLogger({
   const logIds = useRef(new Map<string, string>());
   const loadedTemplate = useRef<string | null>(null);
   const [draftReadyKey, setDraftReadyKey] = useState<string | null>(null);
+  const draftStarted = useRef(true);
   const [finishing, setFinishing] = useState(false);
   const lastSets = useLastSetsForExercises(userId, exerciseIds);
   const calibration = useSetCalibration();
 
   // Form-check clips: uploaded to R2 pre-completion; the object key rides
   // along on the queued set log (set_logs.form_video_s3_key).
-  const media = useMediaUpload();
+  const media = useMediaUpload(userId);
   const [videoKeys, setVideoKeys] = useState<Record<string, string>>({});
   const [uploadingSetId, setUploadingSetId] = useState<string | null>(null);
   const [viewingSetId, setViewingSetId] = useState<string | null>(null);
   const clipActive = useRef(false);
+  const clipBusySet=useRef<string|null>(null);
+  const [clipTarget,setClipTarget]=useState<{setId:string;sessionId:string}|null>(null);
+  const clipLease=useRef({alive:false});
+  useEffect(()=>{const scope={alive:true};clipLease.current=scope;return()=>{scope.alive=false;};},[]);
+  const clipState=useRef({exercises,videoKeys,templateId,draftReadyKey});clipState.current={exercises,videoKeys,templateId,draftReadyKey};
+  const persistClip=async(setId:string,sessionId:string,key:string)=>{
+    const snapshot=clipState.current;const target=snapshot.exercises.flatMap(exercise=>exercise.sets).find(set=>set.id===setId);
+    if(!clipLease.current.alive||saving.current||sessionRef.current.userId!==userId||sessionRef.current.id!==sessionId||!snapshot.templateId||!snapshot.draftReadyKey||!target||target.completed)
+      throw new Error('Choose an unfinished set in the current workout after its saved data has loaded.');
+    saving.current=true;
+    try{
+      const next={...snapshot.videoKeys,[setId]:key};draftStarted.current=true;
+      await writeActiveDraft(snapshot.draftReadyKey,JSON.stringify({version:1,templateId:snapshot.templateId,session:sessionRef.current,
+        exercises:snapshot.exercises,logIds:[...logIds.current],videoKeys:next} satisfies ActiveWorkoutDraft));
+      if(clipLease.current.alive){setVideoKeys(next);setClipTarget(null);setSaveError(null);}
+    }finally{saving.current=false;}
+  };
 
   const attachClip = async (setId: string) => {
-    if (clipActive.current) return;
+    const lease=clipLease.current;
+    if (!lease.alive||clipActive.current||saving.current) return;
+    const sessionId=sessionRef.current.id;
     clipActive.current = true;
+    clipBusySet.current=setId;
     setUploadingSetId(setId);
     try {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if(!lease.alive)return;
     if (!perm.granted) {
       setSaveError('Camera access is disabled. Enable it in your phone settings to record a form clip.');
       return;
@@ -131,6 +155,7 @@ export default function GymLogger({
       videoMaxDuration: 60,
       quality: 0.6,
     });
+    if(!lease.alive)return;
     if (result.canceled || !result.assets?.[0]) return;
 
     const asset = result.assets[0];
@@ -147,12 +172,12 @@ export default function GymLogger({
     };
 
       const { key } = await media.upload(file, 'form-video');
-      setVideoKeys((prev) => ({ ...prev, [setId]: key }));
-      setSaveError(null);
+      await persistClip(setId,sessionId,key);
     } catch (cause) {
       setSaveError(cause instanceof Error ? cause.message : 'Could not record or upload your form clip. Please retry.');
     } finally {
       clipActive.current = false;
+      clipBusySet.current=null;
       setUploadingSetId(null);
     }
   };
@@ -188,13 +213,14 @@ export default function GymLogger({
       let restored: ActiveWorkoutDraft | null = null;
       try {
         restored = parseActiveWorkout(await readActiveDraft(key), userId, templateId);
-        if (restored) restored = recoverQueuedSets(restored, await getAllOutboxItems());
+        if (restored) restored = recoverAssignedDraft(restored, await getAllOutboxItems());
       } catch (cause) {
         if (!cancelled) setSaveError(cause instanceof WorkoutRecoveryError ? cause.message : 'Could not restore your workout. Retry loading before logging more sets.');
         return;
       }
       if (cancelled) return;
       loadedTemplate.current = templateId;
+      draftStarted.current = true;
       sessionRef.current = restored?.session ?? createSessionDraft(userId, templateName ?? 'Workout', Date.now(), randomUUID());
       logIds.current = new Map(restored?.logIds ?? []);
       setExercises(restored?.exercises ?? templateExercises as Exercise[]);
@@ -205,7 +231,7 @@ export default function GymLogger({
   }, [templateExercises, templateName, templateId, userId]);
 
   useEffect(() => {
-    if (!templateId || draftReadyKey !== activeWorkoutKey(userId, templateId)
+    if (!draftStarted.current || !templateId || draftReadyKey !== activeWorkoutKey(userId, templateId)
       || sessionRef.current.userId !== userId) return;
     const draft: ActiveWorkoutDraft = { version: 1, templateId, session: sessionRef.current,
       exercises, logIds: [...logIds.current], videoKeys };
@@ -217,12 +243,13 @@ export default function GymLogger({
   }, [exercises, videoKeys, draftReadyKey, userId, templateId]);
 
   const finishWorkout = async () => {
-    if (saving.current || !templateId || !draftReadyKey || !exercises.some((e) => e.sets.some((s) => s.completed))) return;
+    if (saving.current || clipActive.current || media.status==='uploading' || !templateId || !draftReadyKey || !exercises.some((e) => e.sets.some((s) => s.completed))) return;
     saving.current = true;
     setFinishing(true);
     try {
       await ensureSessionQueued(sessionInsertFrom(sessionRef.current, Date.now(), templateId));
       await writeActiveDraft(draftReadyKey, null);
+      draftStarted.current = false;
       cancelRestTimer();
       sessionRef.current = createSessionDraft(userId, templateName ?? 'Workout', Date.now(), randomUUID());
       logIds.current.clear();
@@ -267,9 +294,11 @@ export default function GymLogger({
     value: string | boolean,
   ) => {
     if (saving.current || !templateId || templateId !== loadedTemplate.current || (status !== 'ready' && status !== 'cached')) return;
+    if(field==='completed'&&value===true&&clipBusySet.current===exercises[eIndex].sets[sIndex].id){setSaveError('Finish or recover the form clip before completing this set.');return;}
     // A completed set is immutable in this logger; do not create another UUID
     // by toggling it off and on after it has already synced.
     if (exercises[eIndex].sets[sIndex].completed) return;
+    draftStarted.current = true;
     const updated = exercises.map((e) => ({ ...e, sets: [...e.sets] }));
     const targetSet = { ...updated[eIndex].sets[sIndex], [field]: value };
     updated[eIndex].sets[sIndex] = targetSet;
@@ -283,7 +312,7 @@ export default function GymLogger({
         id: logIds.current.get(logKey)!,
         sessionId: sessionRef.current.id,
         exerciseId: resolveExerciseId(exercise),
-        setNumber: sIndex + 1,
+        setNumber: setNumberForOccurrence(exercises, eIndex, sIndex),
         weightLbs: targetSet.weight,
         reps: exercise.isIsometric ? '' : targetSet.reps,
         rpe: targetSet.rpe,
@@ -304,7 +333,7 @@ export default function GymLogger({
         await enqueueSetLog(toSetLogInsert(input), userId);
         setSaveError(null);
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        startRestTimer(REST_SECONDS_DEFAULT);
+        startRestTimer(templateExercises?.[eIndex]?.restSeconds ?? REST_SECONDS_DEFAULT);
       } catch {
         setSaveError('Could not save this set on your device. Please retry.');
         return;
@@ -352,7 +381,7 @@ export default function GymLogger({
           <Text className="text-primary">Retry workout</Text>
         </Pressable>}
         {(status === 'ready' || status === 'cached') && exercises.map((exercise, eIndex) => (
-          <FadeInView key={exercise.id} delay={eIndex * 60}>
+          <FadeInView key={`${exercise.id}:${eIndex}`} delay={eIndex * 60}>
             <Card className="overflow-hidden">
               <View className="bg-border/30 px-4 py-3 border-b border-border flex-row items-center justify-between gap-2">
                 <View className="flex-row items-center gap-2 flex-1 min-w-0">
@@ -361,11 +390,12 @@ export default function GymLogger({
                 </View>
                 <Pressable
                   disabled={exercise.sets.some((set) => set.completed)}
-                  onPress={() =>
+                  onPress={() => {
+                    draftStarted.current = true;
                     setExercises((current) =>
                       current.map((e, i) => (i === eIndex ? { ...e, isIsometric: !e.isIsometric } : e)),
-                    )
-                  }
+                    );
+                  }}
                   className={`px-2 py-1 rounded-full border ${
                     exercise.isIsometric ? 'bg-primary/15 border-primary/40' : 'border-border'
                   }`}
@@ -474,7 +504,7 @@ export default function GymLogger({
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={`Complete set ${sIndex + 1} of ${exercise.name}`}
-                          disabled={set.completed || finishing}
+                          disabled={set.completed || finishing || uploadingSetId===set.id}
                           onPress={() => updateSet(eIndex, sIndex, 'completed', !set.completed)}
                         >
                           <MotiView
@@ -573,7 +603,7 @@ export default function GymLogger({
                         ) : (
                           !set.completed && (
                             <Pressable
-                              onPress={() => void attachClip(set.id)}
+                              onPress={() => {if(!clipActive.current&&!saving.current)setClipTarget({setId:set.id,sessionId:sessionRef.current.id});}}
                               disabled={uploadingSetId === set.id}
                               className="flex-row items-center gap-1 bg-border/40 px-2 py-1 rounded-full"
                             >
@@ -586,6 +616,15 @@ export default function GymLogger({
                         )}
                       </View>
 
+                      {clipTarget?.setId===set.id&&!set.completed&&<View className="pl-10 gap-2 border border-border rounded p-3">
+                        <Text className="text-white">Attach a form clip to this unfinished set</Text>
+                        <Pressable disabled={uploadingSetId!==null||media.status==='uploading'} onPress={()=>void attachClip(set.id)}><Text className="text-primary">Record a new clip</Text></Pressable>
+                        <UploadRecovery media={media} kind="form-video" disabled={uploadingSetId!==null}
+                          onStart={()=>{if(!clipLease.current.alive||clipActive.current||saving.current||sessionRef.current.id!==clipTarget.sessionId)throw new Error('Finish the current save and choose this set again.');clipActive.current=true;clipBusySet.current=set.id;setUploadingSetId(set.id);}}
+                          onEnd={()=>{clipActive.current=false;clipBusySet.current=null;if(clipLease.current.alive)setUploadingSetId(null);}}
+                          onUse={result=>persistClip(set.id,clipTarget.sessionId,result.key)}/>
+                        <Pressable disabled={uploadingSetId!==null||media.status==='uploading'} onPress={()=>setClipTarget(null)}><Text className="text-gray-400">Close clip choices</Text></Pressable>
+                      </View>}
                       {viewingSetId === set.id && videoKeys[set.id] && (
                         <View className="pl-10">
                           <MediaViewer objectKey={videoKeys[set.id]} />
@@ -605,7 +644,7 @@ export default function GymLogger({
 
         {exercises.some((e) => e.sets.some((s) => s.completed)) && <Pressable
           accessibilityRole="button" accessibilityLabel="Finish workout"
-          disabled={finishing} onPress={() => void finishWorkout()}
+          disabled={finishing||uploadingSetId!==null||media.status==='uploading'} onPress={() => void finishWorkout()}
           className="min-h-[48px] bg-primary rounded-xl flex-row items-center justify-center gap-2 px-4">
           <Ionicons name="checkmark-circle-outline" size={20} color="white" />
           <Text className="text-white font-semibold">{finishing ? 'Finishing...' : 'Finish workout'}</Text>

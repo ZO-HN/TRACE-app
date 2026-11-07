@@ -3,6 +3,7 @@
 
 import { useMemo } from 'react';
 import { useNutritionLogs } from './useNutritionLogs';
+import { localDate } from '../lib/localDate';
 import { compareWeeks, type WeeklyComparison } from '../lib/nutrition/weeklySummary';
 
 export function useNutritionWeeklySummary(userId: string): {
@@ -10,7 +11,10 @@ export function useNutritionWeeklySummary(userId: string): {
   isLoading: boolean;
   error: string | null;
 } {
-  const { entries, isLoading, error } = useNutritionLogs(userId, 200);
+  const today = new Date();
+  const start = new Date(today); start.setDate(start.getDate() - start.getDay() - 7);
+  const end = new Date(today); end.setDate(end.getDate() + 1);
+  const { entries, isLoading, error } = useNutritionLogs(userId, 200, undefined, { from: localDate(start), to: localDate(end) });
   const comparison = useMemo(() => compareWeeks(entries, new Date()), [entries]);
   return { comparison, isLoading, error };
 }

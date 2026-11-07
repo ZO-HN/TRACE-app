@@ -1,3 +1,4 @@
+import EmailCodeSignIn from './EmailCodeSignIn';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -164,6 +165,8 @@ export default function AuthScreen() {
             Continue with Google
           </Button>
         </View>
+
+        <EmailCodeSignIn />
 
         <Text className="text-sm text-gray-400 text-center">
           Need an account? Ask your coach for an invite link.

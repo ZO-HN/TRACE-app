@@ -3,6 +3,7 @@
 // mapQuickEntry.ts which parses macros out of free text.
 
 import type { FoodMacros, NutritionLogInsert, NutritionMethod } from './types';
+import { captureNutritionRecord } from './record';
 
 export function toNutritionLogFromFood(
   id: string,
@@ -12,7 +13,7 @@ export function toNutritionLogFromFood(
   method: NutritionMethod = 'TYPED',
   mealSlot?: number | null,
 ): NutritionLogInsert {
-  return {
+  return captureNutritionRecord({
     id,
     user_id: userId,
     method,
@@ -22,5 +23,5 @@ export function toNutritionLogFromFood(
     fat_g: macros.fat_g,
     calories: macros.calories,
     ...(mealSlot != null ? { meal_slot: mealSlot } : {}),
-  };
+  });
 }

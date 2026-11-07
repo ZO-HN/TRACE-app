@@ -1,6 +1,6 @@
 import '../global.css';
 
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
@@ -49,7 +49,7 @@ function Gate({ children }: { children: React.ReactNode }) {
   // Keep the offline outbox flushing to Supabase whenever connectivity
   // returns. Mounted unconditionally so it hydrates even while signed out.
   const sync = useOutboxSync(profile?.role === 'trainee' ? user?.id ?? null : null);
-  usePushNotifications(profile?.id ?? null);
+  usePushNotifications(profile?.role === 'trainee' ? profile.id : null);
 
   if (isLoading) {
     return (
@@ -75,6 +75,15 @@ function Gate({ children }: { children: React.ReactNode }) {
         </Pressable>
       </SafeAreaView>
     );
+  }
+
+  if (profile.role !== 'trainee') {
+    return <SafeAreaView className="flex-1 bg-background items-center justify-center px-6 gap-4">
+      <Text className="text-xl font-bold text-white">This is the trainee app</Text>
+      <Text className="text-sm text-gray-400 text-center">Use the coach website with this account, or sign out to use your trainee account.</Text>
+      <Pressable onPress={() => { void Linking.openURL('https://trace-coach.vercel.app').catch(() => undefined); }}><Text className="text-primary">Open coach website</Text></Pressable>
+      <Pressable onPress={() => void supabase.auth.signOut()}><Text className="text-primary">Sign out</Text></Pressable>
+    </SafeAreaView>;
   }
 
   // Blocks everything below this point — no tabs, no dashboard reads — until

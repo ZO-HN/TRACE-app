@@ -20,9 +20,9 @@ interface ButtonProps {
 }
 
 const SIZE_STYLES: Record<ButtonSize, string> = {
-  sm: 'h-11 px-3',
-  md: 'h-11 px-4',
-  lg: 'h-14 px-6',
+  sm: 'min-h-11 px-3 py-2',
+  md: 'min-h-11 px-4 py-2',
+  lg: 'min-h-14 px-6 py-3',
 };
 
 const TEXT_SIZE: Record<ButtonSize, string> = {
@@ -77,7 +77,7 @@ export default function Button({
   };
 
   const label = loading ? (
-    <ActivityIndicator color={variant === 'primary' || variant === 'danger' ? '#fff' : '#4ADE80'} />
+    <ActivityIndicator color={variant === 'primary' || variant === 'danger' ? '#fff' : '#818CF8'} />
   ) : (
     <>
       {icon}
@@ -97,7 +97,7 @@ export default function Button({
         className={`${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''} rounded-xl overflow-hidden`}
       >
         <LinearGradient
-          colors={['#4ADE80', '#22C55E']}
+          colors={['#4F46E5', '#4338CA']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ minHeight: size === 'lg' ? 56 : 44, paddingHorizontal: size === 'lg' ? 24 : 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16 }}

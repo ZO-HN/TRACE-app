@@ -1,3 +1,5 @@
+import { useNutritionLogs } from '../../hooks/useNutritionLogs';
+import { nutritionDay } from '../../lib/nutrition/record';
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, View, Pressable } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -21,6 +23,9 @@ const sections = [
 type Result = { rows: Row[]; error?: string };
 
 export default function DayHistory({ userId, date }: { userId: string; date: string }) {
+  const nutrition = useNutritionLogs(userId, 50, date);
+  const resultKey = `${userId}:${date}`;
+  const [loadedKey, setLoadedKey] = useState('');
   const [results, setResults] = useState<Record<string, Result>>({});
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
@@ -32,7 +37,7 @@ export default function DayHistory({ userId, date }: { userId: string; date: str
     const start = new Date(`${date}T00:00:00`);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
-    void Promise.all(sections.map(async (section) => {
+    void Promise.all(sections.filter(section => section.table !== 'nutrition_logs').map(async (section) => {
       try {
         let query = supabase.from(section.table).select('*').eq('user_id', userId);
         query = section.timestamp
@@ -44,10 +49,10 @@ export default function DayHistory({ userId, date }: { userId: string; date: str
         return [section.table, { rows: [], error: error instanceof Error ? error.message : 'Could not load entries.' }] as const;
       }
     })).then((entries) => {
-      if (!cancelled) { setResults(Object.fromEntries(entries)); setLoading(false); }
+      if (!cancelled) { setResults(Object.fromEntries(entries)); setLoadedKey(resultKey); setLoading(false); }
     });
     return () => { cancelled = true; };
-  }, [userId, date, retry]));
+  }, [userId, date, retry, resultKey]));
 
   const describe = (table: string, row: Row) => {
     switch (table) {
@@ -62,15 +67,15 @@ export default function DayHistory({ userId, date }: { userId: string; date: str
   };
 
   return <ScrollView className="flex-1" contentContainerClassName="px-4 py-4 gap-4">
-    {loading && <Text className="text-gray-400">Loading entries...</Text>}
+    {(loading || nutrition.isLoading || loadedKey !== resultKey) && <Text className="text-gray-400">Loading entries...</Text>}
     {sections.map((section) => {
-      const result = results[section.table];
+      const result = section.table === 'nutrition_logs' ? { rows: nutrition.entries as unknown as Row[], error: nutrition.error ?? undefined } : loadedKey === resultKey ? results[section.table] : undefined;
       const merged = new Map((result?.rows ?? []).map((row) => [row.id, row]));
       for (const item of forUser(items, userId)) {
         if (item.table !== section.table) continue;
         const payload = item.payload as unknown as Row;
         const timestamp = payload[section.column];
-        if (typeof timestamp !== 'string' || localDate(new Date(timestamp)) !== date) continue;
+        if (section.table === 'nutrition_logs' ? nutritionDay(payload as unknown as { logged_at: string; recorded_date?: string | null }) !== date : typeof timestamp !== 'string' || localDate(new Date(timestamp)) !== date) continue;
         if (item.status !== 'synced' || !merged.has(item.id)) merged.set(item.id, { ...payload, id: item.id });
       }
       const rows = [...merged.values()].filter((row) => section.table !== 'wearable_biometrics' || row.step_count != null);
@@ -78,9 +83,9 @@ export default function DayHistory({ userId, date }: { userId: string; date: str
         <Text className="text-white font-bold">{section.title}</Text>
         {result?.error && <Text className="text-red-400 text-xs">{result.error}</Text>}
         {rows.map((row) => <Text key={row.id} className="text-gray-300">{describe(section.table, row)}</Text>)}
-        {!loading && !result?.error && rows.length === 0 && <Text className="text-gray-500">No entries for this date</Text>}
+        {!loading && !nutrition.isLoading && loadedKey === resultKey && !result?.error && rows.length === 0 && <Text className="text-gray-500">No entries for this date</Text>}
       </View>;
     })}
-    {Object.values(results).some((result) => result.error) && <Pressable onPress={() => setRetry((value) => value + 1)}><Text className="text-primary">Retry loading entries</Text></Pressable>}
+    {(nutrition.error || Object.values(loadedKey === resultKey ? results : {}).some((result) => result.error)) && <Pressable onPress={() => { setRetry((value) => value + 1); nutrition.refresh(); }}><Text className="text-primary">Retry loading entries</Text></Pressable>}
   </ScrollView>;
 }

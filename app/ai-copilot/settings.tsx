@@ -1,3 +1,5 @@
+import { AI_AVAILABLE } from '../../src/lib/ai/availability';
+import AIUnavailable from '../../src/components/ai/AIUnavailable';
 // AI Copilot setup — BYO API key. Per project decision: no built-in
 // "Roscoe"-equivalent is bundled or paid for by TRACE; each user brings
 // their own key for any OpenAI-compatible endpoint, stored on-device only
@@ -18,6 +20,10 @@ import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
 
 export default function AICopilotSettingsScreen() {
+  return AI_AVAILABLE ? <EnabledAICopilotSettingsScreen /> : <AIUnavailable />;
+}
+
+function EnabledAICopilotSettingsScreen() {
   const { config, isLoading, save, clear } = useAICopilotConfig();
   const [baseUrl, setBaseUrl] = useState(DEFAULT_AI_BASE_URL);
   const [provider, setProvider] = useState<NonNullable<AICopilotConfig['provider']>>('openai');

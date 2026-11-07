@@ -8,6 +8,7 @@
 
 import type { NutritionLogInsert } from './types';
 import { hasAnyMacro, parseQuickEntry, type ParsedMacros } from './parseQuickEntry';
+import { localDate } from '../localDate';
 
 export function toNutritionLogInsert(
   id: string,
@@ -16,10 +17,12 @@ export function toNutritionLogInsert(
   parsed: ParsedMacros = parseQuickEntry(description),
   mealSlot?: number | null,
 ): NutritionLogInsert {
+  const now = new Date();
   return {
     id,
     user_id: userId,
     method: 'TYPED',
+    logged_at: now.toISOString(), recorded_date: localDate(now),
     description: description.trim() || null,
     protein_g: parsed.protein_g,
     carbs_g: parsed.carbs_g,

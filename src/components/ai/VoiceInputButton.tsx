@@ -1,3 +1,4 @@
+import { AI_AVAILABLE } from '../../lib/ai/availability';
 // Tap-to-record, tap-to-stop mic button that transcribes via the user's
 // configured AI copilot endpoint (src/lib/ai/client.ts's transcribeAudio) —
 // the STT half of Tracked-parity voice logging. Routes to AI Copilot setup
@@ -11,7 +12,12 @@ import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
 import { useAICopilotConfig } from '../../hooks/useAICopilotConfig';
 import { transcribeAudio } from '../../lib/ai/client';
 
-export default function VoiceInputButton({
+export default function VoiceInputButton(props: { onTranscribed: (text: string) => void; onError: (message: string) => void }) {
+  if (!AI_AVAILABLE) return <Pressable disabled accessibilityRole="button" accessibilityLabel="Voice logging unavailable in V1" className="w-11 h-11 items-center justify-center"><Text className="text-[9px] text-gray-500">Voice off</Text></Pressable>;
+  return <EnabledVoiceInputButton {...props} />;
+}
+
+function EnabledVoiceInputButton({
   onTranscribed,
   onError,
 }: {

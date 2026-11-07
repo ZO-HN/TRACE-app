@@ -10,8 +10,12 @@ import Button from './ui/Button';
 // allowed). "Your Coach" is a static label rather than a name lookup that
 // would need a new policy; matches the label the coach dashboard repo used
 // for the same relationship before the two apps split.
-export default function ChatScreen({ myId, coachId }: { myId: string; coachId: string }) {
-  const { messages, send, error } = useDirectChat(myId, coachId);
+export default function ChatScreen(props: { myId: string; coachId: string }) {
+  return <ConversationScreen key={`${props.myId}:${props.coachId}`} {...props} />;
+}
+
+function ConversationScreen({ myId, coachId }: { myId: string; coachId: string }) {
+  const { messages, send, error, isLoading, loadingOlder, hasMore, loadOlder, refresh } = useDirectChat(myId, coachId);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -42,6 +46,7 @@ export default function ChatScreen({ myId, coachId }: { myId: string; coachId: s
 
       <FlatList
         data={messages}
+        ListHeaderComponent={hasMore ? <Button size="sm" variant="secondary" loading={loadingOlder} onPress={() => void loadOlder()}>Load older messages</Button> : null}
         keyExtractor={(m) => m.id}
         contentContainerClassName="p-4 gap-2"
         renderItem={({ item, index }) => (
@@ -63,7 +68,7 @@ export default function ChatScreen({ myId, coachId }: { myId: string; coachId: s
         ListEmptyComponent={
           <View className="items-center py-12 gap-2">
             <Ionicons name="chatbubble-ellipses-outline" size={28} color="#6B7280" />
-            <Text className="text-sm text-gray-500">No messages yet.</Text>
+            <Text className="text-sm text-gray-500">{isLoading ? 'Loading messages…' : error ? 'Message history unavailable. Retry below.' : 'No messages yet.'}</Text>
           </View>
         }
       />
@@ -71,12 +76,14 @@ export default function ChatScreen({ myId, coachId }: { myId: string; coachId: s
       {error && (
         <View className="flex-row items-center gap-1.5 px-4 py-1">
           <Ionicons name="alert-circle-outline" size={13} color="#F87171" />
-          <Text className="text-xs text-red-400">{error}</Text>
+          <View className="flex-1 gap-2"><Text className="text-xs text-red-400">{error}</Text><Button size="sm" variant="secondary" onPress={() => void refresh()}>Refresh conversation</Button></View>
         </View>
       )}
 
       <View className="flex-row items-center gap-2 p-3 border-t border-border">
         <TextInput
+          maxLength={4000}
+          editable={!sending}
           value={draft}
           onChangeText={setDraft}
           placeholder="Message your coach…"

@@ -9,6 +9,7 @@ const row = (over: Partial<TemplateItemRow>): TemplateItemRow => ({
   target_sets: 3,
   target_reps: 8,
   target_rpe: 7,
+  rest_seconds: 90,
   exercise: { id: 'ex-1', name: 'Barbell Back Squat' },
   ...over,
 });
@@ -27,7 +28,7 @@ describe('templateToExercises', () => {
   it('prefills reps/rpe targets, leaves weight empty and sets uncompleted', () => {
     const [exercise] = templateToExercises([row({})]);
     expect(exercise.sets[0]).toEqual({
-      id: 'ex-1-s1',
+      id: '1:ex-1-s1',
       weight: '',
       reps: '8',
       rpe: '7',
@@ -44,5 +45,12 @@ describe('templateToExercises', () => {
   it('uses the real exercise UUID as the logger exercise id (set_logs FK)', () => {
     const [exercise] = templateToExercises([row({})]);
     expect(exercise.id).toBe('ex-1');
+  });
+
+  it('keeps repeated occurrences distinct and carries prescribed rest', () => {
+    const result = templateToExercises([row({ position: 1 }), row({ position: 2, rest_seconds: 45 })]);
+    expect(result.map((exercise) => exercise.id)).toEqual(['ex-1', 'ex-1']);
+    expect(result.map((exercise) => exercise.restSeconds)).toEqual([90, 45]);
+    expect(result[0].sets[0].id).not.toBe(result[1].sets[0].id);
   });
 });

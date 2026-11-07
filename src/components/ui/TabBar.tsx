@@ -47,11 +47,11 @@ function TabButton<T extends string>({
         <Ionicons
           name={active ? tab.activeIcon : tab.icon}
           size={22}
-          color={active ? '#4ADE80' : '#9CA3AF'}
+          color={active ? '#818CF8' : '#9CA3AF'}
         />
       </Animated.View>
       <Animated.View style={labelStyle}>
-      <Text numberOfLines={1} style={{ color: active ? '#4ADE80' : '#9CA3AF',
+      <Text numberOfLines={1} style={{ color: active ? '#818CF8' : '#9CA3AF',
         fontSize: tab.label.length > 10 ? 10 : 11, fontWeight: '500', textAlign: 'center' }}>
         {tab.label}
       </Text>

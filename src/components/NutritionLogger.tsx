@@ -1,3 +1,4 @@
+import PublishedMealPlanCard from './nutrition/PublishedMealPlanCard';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -64,11 +65,12 @@ export default function NutritionLogger({ userId }: { userId: string }) {
               </View>
             ))}
           </View>
-          <Text className="text-xs text-gray-400">Logged totals · no daily targets configured</Text>
+          <Text className="text-xs text-gray-400">Actual intake is saved to 0.1 g and whole kcal · coach targets appear below</Text>
         </View>
       )}
 
       {isLoading && entries.length > 0 && <Text accessibilityLiveRegion="polite" className="text-sm text-gray-400">Updating today's food…</Text>}
+      <PublishedMealPlanCard key={userId} userId={userId} actualCalories={macros.calories} />
       <Button onPress={() => router.push({ pathname: '/nutrition/add-meal', params: { slot: '1' } })} fullWidth>Add food</Button>
       {pending > 0 && (
         <Text accessibilityLiveRegion="polite" className="text-sm text-amber-300">

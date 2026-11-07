@@ -7,7 +7,9 @@ import { Pressable } from 'react-native';
 import Button from '../../src/components/ui/Button';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-const fake = vi.hoisted(() => ({ log: vi.fn() }));
+const fake = vi.hoisted(() => ({ log: vi.fn(), batch: vi.fn() }));
+vi.mock('expo-crypto', () => ({ randomUUID: () => crypto.randomUUID() }));
+vi.mock('../../src/lib/outbox/outboxStore', () => ({ useOutboxStore: (select: (store: unknown) => unknown) => select({ enqueueNutritionBatch: fake.batch }) }));
 vi.mock('react-native', () => ({ ScrollView: 'ScrollView', View: 'View', Text: 'Text', Pressable: 'Pressable' }));
 vi.mock('../../src/components/ui/Button', () => ({ default: 'Button' }));
 vi.mock('../../src/components/ui/Card', () => ({ default: 'Card' }));
@@ -20,7 +22,7 @@ vi.mock('../../src/hooks/useMealTemplates', () => ({ useMealTemplates: () => ({
   templates: [{ id: 'meal', name: 'Lunch', items: [{ name: 'Rice', calories: 200 }, { name: 'Chicken', calories: 300 }] }], isLoading: false,
 }) }));
 let root: ReactTestRenderer;
-beforeEach(() => fake.log.mockReset().mockResolvedValue(undefined));
+beforeEach(() => { fake.log.mockReset().mockResolvedValue(undefined); fake.batch.mockReset().mockResolvedValue(undefined); });
 afterEach(async () => { await act(async () => root?.unmount()); });
 
 it('does not report favorite food logged when storage fails and allows retry', async () => {
@@ -34,13 +36,13 @@ it('does not report favorite food logged when storage fails and allows retry', a
   expect(onLogged).toHaveBeenCalledTimes(1);
 });
 
-it('retries only remaining meal-template items after a partial save failure', async () => {
+it('reports no meal items on batch failure and retries with the same IDs and original timestamp', async () => {
   const onLogged = vi.fn();
-  fake.log.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Disk full'));
+  fake.batch.mockRejectedValueOnce(new Error('Disk full'));
   await act(async () => { root = create(createElement(MealTemplatesTab, { userId: 'a', onLogged })); });
   await act(async () => { root.root.findByType(Button).props.onPress(); });
-  expect(onLogged).toHaveBeenCalledTimes(1);
+  expect(onLogged).not.toHaveBeenCalled();
   await act(async () => { root.root.findByType(Button).props.onPress(); });
-  expect(fake.log.mock.calls.map((call) => call[0])).toEqual(['Rice', 'Chicken', 'Chicken']);
+  expect(fake.batch.mock.calls[1][0]).toEqual(fake.batch.mock.calls[0][0]);
   expect(onLogged).toHaveBeenCalledTimes(2);
 });

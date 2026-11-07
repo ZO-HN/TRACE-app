@@ -11,6 +11,8 @@ import { useMediaUpload } from '../../hooks/useMediaUpload';
 import type { RNFile } from '../../lib/storage/uploadMedia';
 import { parseChoiceOptions, type CheckInAnswerValue, type CheckInQuestion } from '../../lib/checkins/types';
 import { useAsyncAction } from '../../hooks/useAsyncAction';
+import {useTraceUserContext} from '../../context/TraceUserContext';
+import UploadRecovery from '../media/UploadRecovery';
 
 const INPUT_CLASS = 'bg-surface border border-border rounded-xl px-4 py-3 text-white';
 
@@ -131,11 +133,14 @@ function TimeField({ question, value, onChange }: FieldProps) {
   );
 }
 
-/** Shared by 'photo' and 'progress-photo' — captures an image and uploads it
- * via the generic 'file' media kind (the only R2-presign kind that accepts
- * plain image content types without a check-in-specific server change). */
+/** Check-in photo answers use verified 'file' attachments, separate from the
+ * owner's private progress-photo timeline and its access policy. */
 function PhotoField({ value, onChange }: FieldProps) {
-  const media = useMediaUpload();
+  const {profile}=useTraceUserContext();
+  return <OwnedPhotoField key={profile!.id} userId={profile!.id} value={value} onChange={onChange}/>;
+}
+function OwnedPhotoField({userId,value,onChange}:{userId:string;value:CheckInAnswerValue;onChange:(value:CheckInAnswerValue)=>void}){
+  const media = useMediaUpload(userId);
   const [uri, setUri] = useState<string | null>(null);
   const action = useAsyncAction();
 
@@ -144,14 +149,14 @@ function PhotoField({ value, onChange }: FieldProps) {
     if (!perm.granted) throw new Error('Camera permission is needed to take a photo.');
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (result.canceled || !result.assets?.[0]) return;
-    const pickedUri = result.assets[0].uri;
+    const asset=result.assets[0];const pickedUri = asset.uri;
     setUri(pickedUri);
 
     const info = await FileSystem.getInfoAsync(pickedUri);
     const file: RNFile = {
       uri: pickedUri,
-      name: `checkin-${Date.now()}.jpg`,
-      type: 'image/jpeg',
+      name: asset.fileName??`checkin-${Date.now()}.jpg`,
+      type: asset.mimeType??'image/jpeg',
       size: info.exists ? (info.size ?? 0) : 0,
     };
     const { key } = await media.upload(file, 'file');
@@ -164,7 +169,7 @@ function PhotoField({ value, onChange }: FieldProps) {
     <View className="gap-2">
       <Pressable
         onPress={() => void pick()}
-        disabled={action.pending}
+        disabled={action.pending||media.status==='uploading'}
         className="flex-row items-center justify-center gap-2 bg-surface border border-border rounded-xl py-3"
       >
         <Ionicons name="camera-outline" size={16} color="#E5E7EB" />
@@ -176,9 +181,10 @@ function PhotoField({ value, onChange }: FieldProps) {
       {hasKey && (
         <View className="flex-row items-center gap-1.5">
           <Ionicons name="checkmark-circle" size={14} color="#4ADE80" />
-          <Text className="text-xs text-primary">Photo uploaded</Text>
+          <Text className="text-xs text-primary">Photo verified and ready for this answer</Text>
         </View>
       )}
+      <UploadRecovery media={media} kind="file" imagesOnly disabled={action.pending} onUse={result=>onChange({key:result.key})}/>
     </View>
   );
 }

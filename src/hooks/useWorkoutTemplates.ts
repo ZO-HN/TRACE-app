@@ -14,7 +14,7 @@ export function useWorkoutTemplates(userId: string) {
     try {
       const { data, error } = await supabase.from('workout_templates')
         .select('id, name, scope, folder_id, template_items(count)')
-        .eq('is_active', true).or(`assigned_trainee_id.eq.${userId},creator_id.eq.${userId}`)
+        .eq('is_active', true).eq('delivery_kind', 'standalone').or(`assigned_trainee_id.eq.${userId},creator_id.eq.${userId}`)
         .order('name', { ascending: true });
       if (error) throw new Error(error.message);
       if (owner.current === userId && request.current === version) {

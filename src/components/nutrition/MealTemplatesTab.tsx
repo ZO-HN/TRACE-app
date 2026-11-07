@@ -1,7 +1,11 @@
+import { localDate } from '../../lib/localDate';
 import CatalogStatus from './CatalogStatus';
 import { ScrollView, Text, View } from 'react-native';
 import { useMealTemplates } from '../../hooks/useMealTemplates';
-import { useLogFood } from '../../hooks/useLogFood';
+import { useOutboxStore } from '../../lib/outbox/outboxStore';
+import { toNutritionLogFromFood } from '../../lib/nutrition/mapFoodToLog';
+import { randomUUID } from 'expo-crypto';
+import type { NutritionLogInsert } from '../../lib/nutrition/types';
 import type { MealTemplateItem } from '../../lib/nutrition/types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -19,9 +23,9 @@ export default function MealTemplatesTab({
   onLogged: (item: MealTemplateItem) => void;
 }) {
   const { templates, isLoading, error, refresh } = useMealTemplates(userId);
-  const logFood = useLogFood(userId);
+  const enqueueBatch = useOutboxStore(s => s.enqueueNutritionBatch);
   const action = useAsyncAction();
-  const savedCounts = useRef(new Map<string, number>());
+  const pending = useRef<{ owner: string; template: string; payloads: NutritionLogInsert[]; items: MealTemplateItem[] } | null>(null);
 
   if (isLoading || error) return <CatalogStatus loading={isLoading} error={error} onRetry={refresh} />;
 
@@ -50,14 +54,15 @@ export default function MealTemplatesTab({
               size="sm"
               disabled={action.pending || template.items.length === 0}
               onPress={() => void action.run(async () => {
-                const start = savedCounts.current.get(template.id) ?? 0;
-                for (let index = start; index < template.items.length; index++) {
-                  const item = template.items[index];
-                  await logFood(item.name, item, slot);
-                  savedCounts.current.set(template.id, index + 1);
-                  onLogged(item);
+                if (pending.current && (pending.current.owner !== userId || pending.current.template !== template.id)) throw new Error('Retry the previous meal first. No other meal was logged.');
+                if (!pending.current) {
+                  const loggedAt = new Date().toISOString();
+                  pending.current = { owner: userId, template: template.id, items: template.items, payloads: template.items.map(item => ({ ...toNutritionLogFromFood(randomUUID(), userId, item.name, item, 'TYPED', slot), logged_at: loggedAt, recorded_date: localDate(new Date(loggedAt)) })) };
                 }
-                savedCounts.current.delete(template.id);
+                const request = pending.current;
+                await enqueueBatch(request.payloads);
+                pending.current = null;
+                request.items.forEach(onLogged);
               })}
             >
               Log all

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { pendingMealSave, savePersonalMeal } from '../../src/lib/nutrition/saveMeal';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -26,11 +27,14 @@ const TABS: { key: MealTab; label: string }[] = [
 
 export default function AddMealModal() {
   const { profile } = useTraceUserContext();
+  return <AddMealContent key={profile!.id} userId={profile!.id} />;
+}
+
+function AddMealContent({ userId }: { userId: string }) {
   const { slot: slotParam } = useLocalSearchParams<{ slot?: string }>();
   const parsedSlot = Number(slotParam);
   const slot = Number.isInteger(parsedSlot) && parsedSlot > 0 ? parsedSlot : null;
   const [tab, setTab] = useState<MealTab>('quick');
-  const userId = profile!.id;
   const { saveTemplate } = useMealTemplates(userId);
 
   // Items logged during this visit — kept around only so "Save as Meal" has
@@ -41,6 +45,12 @@ export default function AddMealModal() {
   const [savingName, setSavingName] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const action = useAsyncAction();
+  const [previousSave, setPreviousSave] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void pendingMealSave(userId).then(request => { if (alive) setPreviousSave(Boolean(request)); }).catch(error => { if (alive) setSaveError(error instanceof Error ? error.message : 'Could not load previous save.'); });
+    return () => { alive = false; };
+  }, [userId]);
 
   const onLogged = (item: MealTemplateItem) => setLoggedItems((cur) => [...cur, item]);
 
@@ -54,8 +64,10 @@ export default function AddMealModal() {
     if (result.ok) {
       setSavingName(null);
       setSaveError(null);
+      setPreviousSave(false);
     } else {
       setSaveError(result.error ?? 'Could not save that meal.');
+      setPreviousSave(Boolean(await pendingMealSave(userId)));
     }
   });
 
@@ -100,6 +112,8 @@ export default function AddMealModal() {
         {tab === 'meals' && <MealTemplatesTab userId={userId} slot={slot} onLogged={onLogged} />}
       </View>
 
+      {loggedItems.length === 0 && saveError && <Text accessibilityRole="alert" className="px-4 text-red-400">{saveError}</Text>}
+      {previousSave && <View className="p-4 gap-2"><Text className="text-white">A previous meal save needs confirmation.</Text><Button loading={action.pending} onPress={() => void action.run(async () => { await savePersonalMeal(userId); setPreviousSave(false); setSaveError(null); })}>Retry previous meal save</Button>{action.error && <Text className="text-red-400">{action.error}</Text>}</View>}
       {loggedItems.length > 0 && (
         <View className="p-4 border-t border-border gap-2">
           {savingName !== null && (

@@ -28,7 +28,7 @@ function SectionCard({ title, description, children }: { title: string; descript
 
 export default function BodyweightSettingsScreen() {
   const { profile } = useTraceUserContext();
-  const { settings, update, isLoading } = useBodyweightSettings(profile!.id);
+  const { settings, update, isLoading, error: settingsError, refresh, isPersisted } = useBodyweightSettings(profile!.id);
   const { unit, setUnit, isLoaded } = useUnitPreference();
   const unitAction = useAsyncAction();
   const action = useAsyncAction();
@@ -62,6 +62,13 @@ export default function BodyweightSettingsScreen() {
       <ScreenHeader title="Bodyweight Settings" />
 
       <ScrollView contentContainerClassName="p-4 gap-4">
+        {settingsError && <Card className="p-4 gap-2">
+          <Text accessibilityRole="alert" className="text-red-400">Could not load saved bodyweight settings: {settingsError}</Text>
+          <Pressable accessibilityRole="button" disabled={isLoading} onPress={() => void refresh()} className="min-h-[48px] justify-center">
+            <Text className="text-primary font-semibold">{isLoading ? 'Retrying…' : 'Retry loading settings'}</Text>
+          </Pressable>
+        </Card>}
+        {!isPersisted && !settingsError && !isLoading && <Text className="text-amber-400 text-xs">Settings have not been confirmed from the server yet; changes are disabled.</Text>}
         <View className="gap-3 pb-4 border-b border-border">
           <Text className="text-base font-bold text-white">Default weight unit</Text>
           <View className="flex-row gap-2">
@@ -131,7 +138,7 @@ export default function BodyweightSettingsScreen() {
               { value: '7', label: '7 days' },
               { value: '14', label: '14 days' },
             ]}
-            onChange={(v) => { if (!isLoading) void action.run(async () => {
+            onChange={(v) => { if (!isLoading && isPersisted && !settingsError) void action.run(async () => {
               const result = await update({ movingAverageWindow: v === '7' ? 7 : 14 });
               if (!result.ok) throw new Error(result.error);
             }); }}

@@ -17,7 +17,7 @@ vi.mock('expo-router', async () => {
 });
 vi.mock('../../src/lib/supabase', () => ({ supabase: {
   from: () => {
-    const query = { select: () => query, eq: () => query, order: () => query, gte: () => query, lt: () => query, range: (...args: unknown[]) => api.read(...args),
+    const query = { select: () => query, eq: () => query, order: () => query, or: () => query, gte: () => query, lt: () => query, range: (...args: unknown[]) => api.read(...args),
       limit: () => api.read(), maybeSingle: () => api.read(), upsert: (...args: unknown[]) => api.write(...args) };
     return query;
   },
@@ -150,6 +150,14 @@ it('loads every page of a day rather than truncating totals at 50 entries', asyn
   expect(hook.current.entries).toHaveLength(501);
   expect(hook.current.entries.reduce((sum, entry) => sum + (entry.calories ?? 0), 0)).toBe(5010);
   expect(api.read.mock.calls).toEqual([[0, 499], [500, 999]]);
+});
+it('uses the recorded diary day instead of moving an entry with its timestamp, and pages a complete weekly range', async () => {
+  const day = '2026-11-07';
+  const entries = Array.from({length:501},(_,i)=>({id:`recorded-${i}`,recorded_date:day,logged_at:'2026-11-06T00:00:00Z',method:'TYPED',description:'Food',calories:10,protein_g:0.2,carbs_g:null,fat_g:null}));
+  api.read.mockResolvedValueOnce({data:entries.slice(0,500),error:null}).mockResolvedValueOnce({data:entries.slice(500),error:null});
+  const hook = await renderHook(() => useNutritionLogs('a', 200, undefined, {from:'2026-11-01',to:'2026-11-08'}));
+  expect(hook.current.entries).toHaveLength(501);expect(hook.current.entries.reduce((sum,e)=>sum+(e.calories??0),0)).toBe(5010);
+  expect(api.read.mock.calls).toEqual([[0,499],[500,999]]);
 });
 
 it('retains a pending daily entry on read failure and deduplicates its server echo on retry', async () => {

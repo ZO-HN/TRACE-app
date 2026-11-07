@@ -6,6 +6,7 @@ import DayHistory from '../../src/components/dashboard/DayHistory';
 import { localDate } from '../../src/lib/localDate';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+vi.mock('expo-crypto', () => ({ randomUUID: () => crypto.randomUUID() }));
 vi.mock('react-native', () => ({ View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView' }));
 vi.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 vi.mock('expo-router', async () => {
@@ -14,14 +15,16 @@ vi.mock('expo-router', async () => {
 });
 vi.mock('../../src/hooks/useUnitPreference', () => ({ useUnitPreference: () => ({ unit: 'kg' }) }));
 vi.mock('../../src/lib/outbox/outboxStore', () => ({ useOutboxStore: () => [] }));
-const queries = vi.hoisted(() => ({ eq: vi.fn(), gte: vi.fn(), lt: vi.fn() }));
+const queries = vi.hoisted(() => ({ eq: vi.fn(), or: vi.fn(), gte: vi.fn(), lt: vi.fn() }));
 vi.mock('../../src/lib/supabase', () => ({ supabase: { from: () => {
   const query = {
     select: () => query,
     eq: (...args: unknown[]) => { queries.eq(...args); return query; },
     gte: (...args: unknown[]) => { queries.gte(...args); return query; },
     lt: (...args: unknown[]) => { queries.lt(...args); return query; },
-    order: () => Promise.resolve({ data: [], error: null }),
+    or: (...args: unknown[]) => { queries.or(...args); return query; },
+    range: () => Promise.resolve({ data: [], error: null }),
+    order: () => Object.assign(Promise.resolve({ data: [], error: null }), query),
   };
   return query;
 } } }));
@@ -53,7 +56,7 @@ it('loads only the selected local day and shows empty states for future dates', 
   await act(async () => { root = create(createElement(DayHistory, { userId: 'test-user', date: '2027-01-02' })); });
   expect(queries.eq).toHaveBeenCalledWith('user_id', 'test-user');
   expect(queries.eq).toHaveBeenCalledWith('recorded_date', '2027-01-02');
-  expect(queries.gte).toHaveBeenCalledWith('logged_at', new Date('2027-01-02T00:00:00').toISOString());
-  expect(queries.lt).toHaveBeenCalledWith('logged_at', new Date('2027-01-03T00:00:00').toISOString());
+  expect(queries.or).toHaveBeenCalledWith(expect.stringContaining('recorded_date.gte.2027-01-02'));
+
   expect(JSON.stringify(root.toJSON())).toContain('No entries for this date');
 });

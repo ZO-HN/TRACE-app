@@ -7,6 +7,8 @@ import type { OutboxItem } from './types';
 
 export interface OutboxDriver {
   put(item: OutboxItem): Promise<void>;
+  /** Commit all new rows together; reject without changing any row. */
+  putNewBatch?(items: OutboxItem[]): Promise<void>;
   getAll(): Promise<OutboxItem[]>;
   delete(id: string): Promise<void>;
   clear(): Promise<void>;

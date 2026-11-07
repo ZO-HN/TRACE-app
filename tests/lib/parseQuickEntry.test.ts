@@ -109,11 +109,11 @@ it.each(['-0.1 kcal', '-0,1 kcal', '-0.1g protein, 200 kcal', '-0,1g fat, 200 kc
   },
 );
 
-it.each(['12.5', '12,5', '+12.5', '0', '0.01'])(
-  'accepts a plain decimal quantity %s', (quantity) => {
+it.each([['12.5',12.5], ['12,5',12.5], ['+12.5',12.5], ['0',0], ['0.01',0]] as const)(
+  'accepts a plain decimal quantity %s at intake storage precision', (quantity, expected) => {
     const parsed = parseQuickEntry(`Yogurt,${quantity}g protein,150 kcal`);
     expect(parsed.error).toBeUndefined();
-    expect(parsed.protein_g).toBe(Number(quantity.replace(',', '.')));
+    expect(parsed.protein_g).toBe(expected);
     expect(parsed.calories).toBe(150);
     expect(hasAnyMacro(parsed)).toBe(true);
   },

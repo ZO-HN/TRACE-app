@@ -6,6 +6,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import type { AICopilotConfig } from './types';
 import { validateAIConfig } from './types';
+import { AI_AVAILABLE, AI_UNAVAILABLE_REASON } from './availability';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -31,6 +32,7 @@ export async function chatCompletion(
   config: AICopilotConfig,
   messages: ChatMessage[],
 ): Promise<ChatCompletionResult | ChatCompletionError> {
+  if (!AI_AVAILABLE) return { ok: false, error: AI_UNAVAILABLE_REASON };
   const invalid = validateAIConfig(config);
   if (invalid) return { ok: false, error: invalid };
   const controller = new AbortController();
@@ -97,6 +99,7 @@ export async function transcribeAudio(
   fileUri: string,
   mimeType: string,
 ): Promise<TranscriptionResult | TranscriptionError> {
+  if (!AI_AVAILABLE) return { ok: false, error: AI_UNAVAILABLE_REASON };
   if (config.provider === 'gemini' || config.provider === 'anthropic') return { ok: false, error: 'Voice transcription is not supported by this provider integration. Use text input.' };
   const invalid = validateAIConfig(config);
   if (invalid) return { ok: false, error: invalid };

@@ -30,3 +30,15 @@ it('rejects stale catalog responses across an account switch', async () => {
   await act(async () => old.resolve({ data: [{ id: 'private-a-food' }], error: null }));
   expect(hook.current.rows).toEqual([]);
 });
+it('does not let a late old-account mutation refresh cancel the current account read', async () => {
+  let user = 'a';
+  const hook = await renderHook(() => useNutritionCatalog('meal_templates', 'id', user));
+  const oldRefresh = hook.current.refresh;
+  const wait = deferred<{ data: { id: string }[]; error: null }>();
+  api.read.mockReturnValueOnce(wait.promise); user = 'b'; await hook.rerender();
+  const calls = api.read.mock.calls.length;
+  await act(async () => { await oldRefresh(); });
+  expect(api.read).toHaveBeenCalledTimes(calls);
+  await act(async () => wait.resolve({ data: [{ id: 'b-meal' }], error: null }));
+  expect(hook.current.rows).toEqual([{ id: 'b-meal' }]); expect(hook.current.isLoading).toBe(false);
+});

@@ -2,6 +2,7 @@
 // Framework-free so they're testable without rendering anything.
 
 import { localDate } from '../localDate';
+import { nutritionDay } from '../nutrition/record';
 
 export interface DateStripDay {
   date: string; // YYYY-MM-DD
@@ -34,6 +35,7 @@ export interface TodayMacros {
 export function sumTodayMacros<
   T extends {
     logged_at: string;
+    recorded_date?: string | null;
     calories: number | null;
     protein_g: number | null;
     carbs_g: number | null;
@@ -41,7 +43,7 @@ export function sumTodayMacros<
   },
 >(entries: T[], today: Date): TodayMacros {
   const todayKey = localDate(today);
-  const todays = entries.filter((e) => localDate(new Date(e.logged_at)) === todayKey);
+  const todays = entries.filter((e) => nutritionDay(e) === todayKey);
 
   return {
     calories: todays.reduce((sum, e) => sum + (e.calories ?? 0), 0),

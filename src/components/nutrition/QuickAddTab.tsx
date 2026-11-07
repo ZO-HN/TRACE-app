@@ -1,3 +1,4 @@
+import { AI_AVAILABLE, AI_UNAVAILABLE_REASON } from '../../lib/ai/availability';
 import { useMemo, useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,6 +8,7 @@ import { router } from 'expo-router';
 import { useNutritionLogs } from '../../hooks/useNutritionLogs';
 import { useAICopilotConfig } from '../../hooks/useAICopilotConfig';
 import { hasAnyMacro, parseQuickEntry } from '../../lib/nutrition/parseQuickEntry';
+import { nutritionEntryError } from '../../lib/nutrition/validation';
 import { chatCompletion } from '../../lib/ai/client';
 import {
   buildMealPhotoScanMessages,
@@ -35,6 +37,7 @@ export default function QuickAddTab({
   const [error, setError] = useState<string | null>(null);
 
   const parsed = useMemo(() => parseQuickEntry(text), [text]);
+  const validationError = parsed.error ?? nutritionEntryError({ ...parsed, description: text.trim(), meal_slot: slot });
   const chips = [
     parsed.protein_g != null && `${parsed.protein_g}g protein`,
     parsed.carbs_g != null && `${parsed.carbs_g}g carbs`,
@@ -54,6 +57,7 @@ export default function QuickAddTab({
   });
 
   const handleAIScan = async () => {
+    if (!AI_AVAILABLE) { setError(AI_UNAVAILABLE_REASON); return; }
     if (!isConfigured || !config) {
       router.push('/ai-copilot/settings');
       return;
@@ -124,9 +128,9 @@ export default function QuickAddTab({
           </View>
         </View>
       )}
-      {text.trim().length > 0 && !hasAnyMacro(parsed) && <Text className="text-sm text-amber-300">{parsed.error ?? 'Enter non-negative values, such as 150 kcal or 20g protein.'}</Text>}
+      {text.trim().length > 0 && validationError && <Text className="text-sm text-amber-300">{validationError}</Text>}
       {(error || action.error) && <Text accessibilityRole="alert" className="text-sm text-red-400">{error ?? action.error}</Text>}
-      <Button onPress={() => void handleLog()} loading={action.pending} disabled={!hasAnyMacro(parsed) || scanning} fullWidth>
+      <Button onPress={() => void handleLog()} loading={action.pending} disabled={!hasAnyMacro(parsed) || !!validationError || scanning} fullWidth>
         Save entry
       </Button>
       <Text className="text-xs text-gray-400">Food logs save on this device first, including offline.</Text>

@@ -1,15 +1,14 @@
 // Nutrition catalog operations require a connection; food logging uses the durable outbox.
 
 import { useCallback } from 'react';
+import { savePersonalMeal } from '../lib/nutrition/saveMeal';
 import { useNutritionCatalog } from './useNutritionCatalog';
-import { randomUUID } from 'expo-crypto';
-import { supabase } from '../lib/supabase';
 import type { MealTemplate, MealTemplateItem } from '../lib/nutrition/types';
 
 interface TemplateRow {
   id: string;
   name: string;
-  meal_template_items: MealTemplateItem[];
+  meal_template_items: (MealTemplateItem & { order: number })[];
 }
 
 export interface UseMealTemplates {
@@ -21,30 +20,14 @@ export interface UseMealTemplates {
 }
 
 export function useMealTemplates(userId: string): UseMealTemplates {
-  const { rows, isLoading, error, refresh } = useNutritionCatalog<TemplateRow>('meal_templates', 'id, name, meal_template_items(name, protein_g, carbs_g, fat_g, calories)', userId);
-  const templates = rows.map((row) => ({ id: row.id, name: row.name, items: row.meal_template_items ?? [] }));
+  const { rows, isLoading, error, refresh } = useNutritionCatalog<TemplateRow>('meal_templates', 'id, name, meal_template_items(name, protein_g, carbs_g, fat_g, calories, order)', userId);
+  const templates = rows.map((row) => ({ id: row.id, name: row.name, items: [...(row.meal_template_items ?? [])].sort((a,b)=>a.order-b.order).map(({order:_order,...item})=>item) }));
 
   const saveTemplate = useCallback(
     async (name: string, items: MealTemplateItem[]) => {
-      const trimmed = name.trim();
-      if (!trimmed) return { ok: false, error: 'Meal name is required.' };
-      if (items.length === 0) return { ok: false, error: 'Add at least one food first.' };
-
-      const templateId = randomUUID();
-      const { error: templateError } = await supabase
-        .from('meal_templates')
-        .insert({ id: templateId, user_id: userId, name: trimmed });
-      if (templateError) return { ok: false, error: templateError.message };
-
-      const { error: itemsError } = await supabase.from('meal_template_items').insert(
-        items.map((item, order) => ({
-          id: randomUUID(),
-          meal_template_id: templateId,
-          order,
-          ...item,
-        })),
-      );
-      if (itemsError) return { ok: false, error: itemsError.message };
+      try {
+        await savePersonalMeal(userId, name, items);
+      } catch (error) { return { ok: false, error: error instanceof Error ? error.message : 'Could not save meal.' }; }
 
       await refresh();
       return { ok: true };

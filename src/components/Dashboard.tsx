@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useAssignedWorkout } from '../hooks/useAssignedWorkout';
 import { useBodyweightLogs } from '../hooks/useBodyweightLogs';
 import { useStepsLogs } from '../hooks/useStepsLogs';
@@ -229,10 +229,12 @@ function TodayDashboard({ userId }: { userId: string }) {
   const [customizing, setCustomizing] = useState(false);
   const layoutAction = useAsyncAction();
   const today = new Date();
-  const { templateName, exercises } = useAssignedWorkout(userId);
+  const workout = useAssignedWorkout(userId);
+  const { templateName, templateId, status, error: workoutError, retry: retryWorkout } = workout;
+  useFocusEffect(useCallback(() => { retryWorkout(); }, [retryWorkout]));
   const { entries: bwEntries, logToday } = useBodyweightLogs(userId, 14);
   const { unit: weightUnit } = useUnitPreference();
-  const { entries: nutritionEntries } = useNutritionLogs(userId, 50);
+  const { entries: nutritionEntries } = useNutritionLogs(userId, 50, daysAgoKey(0));
   const { logs: sleepLogs, logSleep } = useSleepLogs(userId, daysAgoKey(7));
   const { todayMl: waterMl, logToday: logWater, error: waterError, isLoading: waterLoading } = useWaterLogs(userId);
   const { entries: stepsEntries, logToday: logSteps } = useStepsLogs(userId, 7);
@@ -259,15 +261,21 @@ function TodayDashboard({ userId }: { userId: string }) {
       </View>
 
 
-      {layout.training && <DashCard title="Training" badge={templateName ? undefined : 'No program'}>
-        <Button fullWidth onPress={() => router.push('/(tabs)/session')}>
-          {templateName ?? (exercises ? 'Continue Workout' : 'Select Workout')}
-        </Button>
+      {layout.training && <DashCard title="Training" badge={status === 'unassigned' ? 'Waiting for your coach' : status === 'cached' ? 'Saved on device' : undefined}>
+        {status === 'loading' ? <Text className="text-gray-400">Checking your workout…</Text> : status === 'unavailable' ? <>
+          <Text className="text-gray-400">{workoutError ?? 'Workout unavailable.'}</Text>
+          <Button fullWidth variant="secondary" onPress={retryWorkout}>Retry workout</Button>
+        </> : status === 'unassigned' ? <>
+          <Text className="text-gray-400 mb-3">Your account is linked. Your coach has not assigned a workout yet. Check again after they assign it.</Text>
+          <Button fullWidth variant="secondary" onPress={retryWorkout}>Check for assignment</Button>
+        </> : <Button fullWidth onPress={() => router.push({ pathname: '/(tabs)/session', params: { templateId: templateId! } })}>
+          {templateName ?? 'Open workout'}
+        </Button>}
       </DashCard>}
 
       {layout.nutrition && <View className="flex-row items-stretch gap-3">
         <Pressable className="flex-1 min-w-0" onPress={() => router.push('/(tabs)/nutrition')}>
-          <DashCard title="Calories" badge={macros.hasAny ? undefined : 'No goal'}>
+          <DashCard title="Calories" badge={macros.hasAny ? undefined : 'No intake yet'}>
             <Text className="text-white text-2xl font-bold">
               {macros.calories} <Text className="text-sm text-gray-500 font-normal">kcal</Text>
             </Text>

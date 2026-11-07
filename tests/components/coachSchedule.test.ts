@@ -1,0 +1,30 @@
+import {createElement} from 'react';
+import {act,create,type ReactTestRenderer} from 'react-test-renderer';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import CoachSchedule from '../../src/components/CoachSchedule';
+const api=vi.hoisted(()=>({push:vi.fn(),open:vi.fn(),days:[] as unknown[],cached:false,error:null as string|null,rows:[{id:'event',template_id:'exact-copy',workout_name:'Scheduled squat',scheduled_date:'2026-11-08',revision:1}]}));
+Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+vi.mock('react-native',()=>({Text:'Text',View:'View'}));
+vi.mock('expo-router',()=>({router:{push:api.push}}));
+vi.mock('../../src/context/TraceUserContext',()=>({useTraceUserContext:()=>({profile:{id:'trainee',coach_id:'coach'}})}));
+vi.mock('../../src/hooks/useCoachSchedule',()=>({useCoachSchedule:()=>({rows:api.rows,cached:api.cached,loading:false,error:api.error,refresh:vi.fn()})}));
+vi.mock('../../src/hooks/useCoachPrograms',()=>({useCoachPrograms:()=>({days:api.days,cached:false,loading:false,error:null,refresh:vi.fn()})}));
+vi.mock('../../src/lib/workout/openCoachProgram',()=>({pendingProgramOpen:async()=>null,openCoachProgram:(...args:unknown[])=>api.open(...args)}));
+vi.mock('../../src/components/ui/Card',()=>({default:'Card'}));
+vi.mock('../../src/components/ui/Button',()=>({default:'Button'}));
+let root:ReactTestRenderer;
+beforeEach(()=>{api.push.mockReset();api.open.mockReset().mockResolvedValue('program-copy');api.days=[];api.cached=false;api.error=null;});afterEach(async()=>act(async()=>root?.unmount()));
+it('opens the exact scheduled copy through the existing session route and labels offline schedule freshness',async()=>{
+  api.cached=true;await act(async()=>{root=create(createElement(CoachSchedule,{userId:'trainee'}));});
+  const open=root.root.findAll(n=>n.type===('Button' as any)).find(n=>String(n.props.children).startsWith('Open'))!;
+  await act(async()=>open.props.onPress());
+  expect(api.push).toHaveBeenCalledWith({pathname:'/(tabs)/session',params:{templateId:'exact-copy'}});
+  expect(JSON.stringify(root.toJSON())).toContain('cancellations may have changed');
+});
+it('captures the chosen current program day before launching the returned exact prescription',async()=>{
+  const day={program_id:'program',slot_id:'slot',anchor_date:'2026-11-08',revision:2,scheduled_date:'2026-11-08',program_name:'Strength',label:'Training',rest:false,source:'Group'};api.days=[day];
+  await act(async()=>{root=create(createElement(CoachSchedule,{userId:'trainee'}));});
+  const button=root.root.findAll(n=>n.type===('Button' as any)).find(n=>n.props.children==='Open program workout')!;
+  await act(async()=>button.props.onPress());
+  expect(api.open).toHaveBeenCalledWith('trainee',day);expect(api.push).toHaveBeenCalledWith({pathname:'/(tabs)/session',params:{templateId:'program-copy'}});
+});

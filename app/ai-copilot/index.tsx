@@ -1,3 +1,5 @@
+import { AI_AVAILABLE } from '../../src/lib/ai/availability';
+import AIUnavailable from '../../src/components/ai/AIUnavailable';
 // AI Copilot chat — the BYO-key replacement for a built-in "Roscoe"-style
 // assistant. Session-local only: no chat history table, no server
 // involvement beyond the user's own configured endpoint. If no key is
@@ -20,6 +22,10 @@ const SYSTEM_PROMPT: ChatMessage = {
 };
 
 export default function AICopilotChatScreen() {
+  return AI_AVAILABLE ? <EnabledAICopilotChatScreen /> : <AIUnavailable />;
+}
+
+function EnabledAICopilotChatScreen() {
   const { config, isConfigured, isLoading } = useAICopilotConfig();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');

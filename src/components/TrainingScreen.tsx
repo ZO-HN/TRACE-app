@@ -15,6 +15,8 @@ import { groupByFolder } from '../lib/workout/folders';
 import { toBarWidths } from '../lib/analytics/muscleBars';
 import { kgToLbs } from '../lib/units';
 import WorkoutGenerator from './WorkoutGenerator';
+import ResumeWorkouts from './ResumeWorkouts';
+import CoachSchedule from './CoachSchedule';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import Select from './ui/Select';
@@ -415,6 +417,8 @@ function ReadinessCard({ userId }: { userId: string }) {
 export default function TrainingScreen({ userId }: { userId: string }) {
   return (
     <View className="gap-8">
+      <ResumeWorkouts userId={userId} />
+      <CoachSchedule userId={userId} />
       <MyWorkouts userId={userId} />
       <WorkoutGenerator userId={userId} />
       <ReadinessCard userId={userId} />

@@ -6,12 +6,14 @@ import * as SecureStore from 'expo-secure-store';
 import type { AICopilotConfig } from './types';
 import { Platform } from 'react-native';
 import { isAICopilotConfigured, validateAIConfig } from './types';
+import { AI_AVAILABLE, AI_UNAVAILABLE_REASON } from './availability';
 
 let webConfig: AICopilotConfig | null = null;
 
 const STORAGE_KEY = 'trace_ai_copilot_config_v1';
 
 export async function loadAICopilotConfig(): Promise<AICopilotConfig | null> {
+  if (!AI_AVAILABLE) return null;
   if (Platform.OS === 'web') return webConfig;
   const raw = await SecureStore.getItemAsync(STORAGE_KEY);
   if (!raw) return null;
@@ -24,6 +26,7 @@ export async function loadAICopilotConfig(): Promise<AICopilotConfig | null> {
 }
 
 export async function saveAICopilotConfig(config: AICopilotConfig): Promise<void> {
+  if (!AI_AVAILABLE) throw new Error(AI_UNAVAILABLE_REASON);
   const error = validateAIConfig(config);
   if (error) throw new Error(error);
   if (Platform.OS === 'web') { webConfig = { ...config }; return; }

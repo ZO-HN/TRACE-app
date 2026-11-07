@@ -6,6 +6,7 @@ export interface TemplateItemRow {
   target_sets: number;
   target_reps: number;
   target_rpe: number | null;
+  rest_seconds: number;
   exercise: { id: string; name: string };
 }
 
@@ -20,6 +21,7 @@ export interface LoggerSet {
 export interface LoggerExercise {
   id: string; // real exercises.id UUID — used directly as the set_logs FK
   name: string;
+  restSeconds: number;
   sets: LoggerSet[];
 }
 
@@ -30,8 +32,9 @@ export function templateToExercises(rows: TemplateItemRow[]): LoggerExercise[] {
     .map((row) => ({
       id: row.exercise.id,
       name: row.exercise.name,
+      restSeconds: row.rest_seconds,
       sets: Array.from({ length: Math.max(1, row.target_sets) }, (_, i) => ({
-        id: `${row.exercise.id}-s${i + 1}`,
+        id: `${row.position}:${row.exercise.id}-s${i + 1}`,
         weight: '',
         reps: String(row.target_reps),
         rpe: row.target_rpe == null ? '' : String(row.target_rpe),
